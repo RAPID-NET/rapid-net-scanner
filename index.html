@@ -3,28 +3,76 @@
 <head>
   <title>RAPID-NET QR Scanner</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
+    th { background-color: #f0f0f0; }
+    .in { background-color: #c6efce; }   /* green */
+    .out { background-color: #ffc7ce; }  /* red */
+  </style>
 </head>
 <body>
   <h2>RAPID-NET QR Scanner</h2>
-  <div id="reader" style="width:300px;"></div>
+
+  <!-- IN / OUT Selection -->
+  <div>
+    <label><input type="radio" name="direction" value="in" checked> IN</label>
+    <label><input type="radio" name="direction" value="out"> OUT</label>
+  </div>
+
+  <div id="reader" style="width:300px; margin-top:10px;"></div>
   <p id="status">Waiting for scan...</p>
 
+  <!-- Live scan log -->
+  <table id="scan-log">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Student Name</th>
+        <th>Direction</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
   <script>
-    const scriptURL = "https://script.google.com/macros/s/AKfycbyCro0X4xhMYDtGupeLSmYS56hPv6-bmvPrgOsG0XBBVi4Dk_AGE80nTXOEqh1Uc212/exec";
+    const scriptURL = "YOUR_APPS_SCRIPT_URL_HERE";
 
     function sendScanData(studentId, lat = "", lng = "") {
+      const direction = document.querySelector('input[name="direction"]:checked').value;
+      const timeNow = new Date().toLocaleTimeString();
+
       fetch(scriptURL, {
         method: 'POST',
         body: new URLSearchParams({
           studentId: studentId,
           lat: lat,
-          lng: lng
+          lng: lng,
+          direction: direction
         })
       })
       .then(response => response.text())
       .then(data => {
-        document.getElementById("status").innerText = "✅ Submitted: " + studentId;
-        // After submission, restart scanner
+        // Expected response: "✅ Scan received: ID, Name, direction"
+        const matches = data.match(/✅ Scan received: (.*), (.*), (.*)/);
+        let studentName = studentId;
+        if (matches && matches.length === 4) {
+          studentName = matches[2];
+        }
+
+        document.getElementById("status").innerText = `✅ Submitted: ${studentId} (${direction})`;
+
+        // Update live log table
+        const tbody = document.querySelector("#scan-log tbody");
+        const row = tbody.insertRow(0); // insert on top
+        row.className = direction; // 'in' or 'out'
+        row.insertCell(0).innerText = studentId;
+        row.insertCell(1).innerText = studentName;
+        row.insertCell(2).innerText = direction.toUpperCase();
+        row.insertCell(3).innerText = timeNow;
+
+        // Restart scanner
         setTimeout(() => {
           document.getElementById("status").innerText = "Waiting for scan...";
           startScanner();
@@ -32,7 +80,6 @@
       })
       .catch(error => {
         document.getElementById("status").innerText = "❌ Error: " + error;
-        // Retry scanning after 3 seconds
         setTimeout(() => {
           document.getElementById("status").innerText = "Waiting for scan...";
           startScanner();
@@ -52,17 +99,13 @@
           navigator.geolocation.getCurrentPosition(function(position) {
             sendScanData(qrCodeMessage, position.coords.latitude, position.coords.longitude);
           }, function() {
-            // If geolocation denied or unavailable
             sendScanData(qrCodeMessage);
           });
         },
-        errorMessage => {
-          // console.log(`QR Scan error: ${errorMessage}`);
-        }
+        errorMessage => { /* ignore errors */ }
       );
     }
 
-    // Start scanning on page load
     startScanner();
   </script>
 </body>
