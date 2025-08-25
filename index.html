@@ -2,139 +2,142 @@
 <html>
 <head>
   <title>RAPID-NET QR Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#28a745">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- QR Scanner library -->
   <script src="https://unpkg.com/html5-qrcode"></script>
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    #header { background-color: #4CAF50; color: white; padding: 15px; text-align: center; font-size: 28px; font-weight: bold; }
-    #controls { padding: 15px; text-align: center; }
-    #reader { width: 300px; margin: 10px auto; }
-    #manual-entry { margin-top: 10px; text-align: center; }
-    #manual-entry input { padding: 5px; width: 150px; font-size: 16px; }
-    #manual-entry button { padding: 6px 12px; font-size: 16px; margin-left: 5px; }
-    table { border-collapse: collapse; width: 90%; margin: 15px auto; }
-    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-    .present { background-color: #c6efce; }
-    .late { background-color: #ffeb9c; }
-    .very-late { background-color: #f4cccc; }
-    .going-home { background-color: #9fc5e8; }
-    .absent { background-color: #ffc7ce; }
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f8f9fa; }
+    header { background-color:#28a745; color:white; text-align:center; padding:20px 0; font-size:2em; font-weight:bold; }
+    main { padding:15px; max-width:500px; margin:auto; }
+    .selector, .manual-entry { margin-bottom:15px; }
+    .manual-entry input { width:100%; padding:10px; font-size:1em; }
+    #reader { width:100%; margin-bottom:15px; }
+    #status { font-weight:bold; margin-bottom:15px; }
+    table { width:100%; border-collapse: collapse; margin-bottom:30px; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:center; font-size:0.9em; }
+    .in { background-color: #c6efce; }
+    .out { background-color: #ffc7ce; }
   </style>
 </head>
 <body>
+  <header>RAPID-NET QR SCANNER</header>
+  <main>
+    <!-- IN/OUT selector -->
+    <div class="selector">
+      <label><input type="radio" name="scanType" value="in" checked> IN</label>
+      <label><input type="radio" name="scanType" value="out"> OUT</label>
+      <label><input type="checkbox" id="manualMode"> Manual / Testing Mode</label>
+    </div>
 
-<div id="header">RAPID-NET QR SCANNER</div>
+    <!-- QR Scanner -->
+    <div id="reader"></div>
+    <p id="status">Waiting for scan...</p>
 
-<div id="controls">
-  <label><input type="radio" name="scanType" value="in" checked> IN</label>
-  <label><input type="radio" name="scanType" value="out"> OUT</label>
-  <label><input type="checkbox" id="manualMode"> Manual / Testing Mode</label>
-</div>
+    <!-- Manual student ID input -->
+    <div class="manual-entry">
+      <input type="text" id="manualStudentId" placeholder="Enter Student ID manually">
+      <button onclick="manualScan()">Submit Manual Entry</button>
+    </div>
 
-<div id="reader"></div>
-<p id="status" style="text-align:center;">Waiting for scan...</p>
+    <!-- Live scan table -->
+    <table id="scan-log">
+      <thead>
+        <tr>
+          <th>Student ID</th>
+          <th>Student Name</th>
+          <th>Direction</th>
+          <th>Status</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </main>
 
-<div id="manual-entry">
-  <input type="text" id="manualId" placeholder="Enter Student ID">
-  <button id="manualBtn">Submit Manual Override</button>
-</div>
+  <script>
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
 
-<table id="scan-log">
-  <thead>
-    <tr>
-      <th>Student ID</th>
-      <th>Student Name</th>
-      <th>Direction</th>
-      <th>Status</th>
-      <th>Time</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-<script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
-
-function getScanType() {
-  return document.querySelector('input[name="scanType"]:checked').value;
-}
-
-function sendScanData(studentId, lat="", lng="", manualOverride=false){
-  const scanType = getScanType();
-  const payload = {
-    studentId: studentId,
-    scanType: manualOverride ? "manual" : scanType,
-    lat: lat,
-    lng: lng,
-    manualStatus: manualOverride ? "Manual Override" : ""
-  };
-
-  fetch(scriptURL, {
-    method: 'POST',
-    body: new URLSearchParams(payload)
-  })
-  .then(resp => resp.json())
-  .then(data => {
-    if(data.error){
-      document.getElementById("status").innerText = data.error;
-    } else {
-      document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
-
-      const tbody = document.querySelector("#scan-log tbody");
-      const row = tbody.insertRow(0);
-      row.className = data.direction.toLowerCase();
-      row.insertCell(0).innerText = data.studentId;
-      row.insertCell(1).innerText = data.studentName;
-      row.insertCell(2).innerText = data.direction.toUpperCase();
-      row.insertCell(3).innerText = data.status;
-      row.insertCell(4).innerText = new Date().toLocaleTimeString();
+    function getScanType() {
+      return document.querySelector('input[name="scanType"]:checked').value;
     }
-    // Restart scanner after 2 sec
-    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 2000);
-  })
-  .catch(err => {
-    document.getElementById("status").innerText = "❌ Error: "+err;
-    setTimeout(()=>{ document.getElementById("status").innerText="Waiting for scan..."; startScanner(); },3000);
-  });
-}
 
-let html5QrCode;
+    function sendScanData(studentId, lat="", lng="") {
+      const scanType = getScanType();
+      fetch(scriptURL, {
+        method: 'POST',
+        body: new URLSearchParams({ studentId, scanType, lat, lng })
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById("status").innerText = `✅ ${data.studentName} (${data.status})`;
 
-function startScanner(){
-  html5QrCode = new Html5Qrcode("reader");
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps:10, qrbox:250 },
-    qrCodeMessage => {
-      html5QrCode.stop();
-      navigator.geolocation.getCurrentPosition(pos=>{
-        sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-      }, ()=>{
-        sendScanData(qrCodeMessage,"","",false);
+        const tbody = document.querySelector("#scan-log tbody");
+        const row = tbody.insertRow(0);
+        row.className = data.direction;
+        row.insertCell(0).innerText = data.studentId;
+        row.insertCell(1).innerText = data.studentName;
+        row.insertCell(2).innerText = data.direction.toUpperCase();
+        row.insertCell(3).innerText = data.status;
+        row.insertCell(4).innerText = new Date().toLocaleTimeString();
+
+        setTimeout(() => {
+          document.getElementById("status").innerText = "Waiting for scan...";
+          if(!document.getElementById("manualMode").checked) startScanner();
+        }, 2000);
+      })
+      .catch(error => {
+        document.getElementById("status").innerText = "❌ Error: " + error;
+        setTimeout(() => {
+          document.getElementById("status").innerText = "Waiting for scan...";
+          if(!document.getElementById("manualMode").checked) startScanner();
+        }, 3000);
       });
-    },
-    errorMessage => { /* console.log(errorMessage); */ }
-  );
-}
+    }
 
-startScanner();
+    function manualScan() {
+      const studentId = document.getElementById("manualStudentId").value.trim();
+      if(studentId) {
+        navigator.geolocation.getCurrentPosition(
+          pos => sendScanData(studentId, pos.coords.latitude, pos.coords.longitude),
+          () => sendScanData(studentId)
+        );
+        document.getElementById("manualStudentId").value = "";
+      } else {
+        alert("Please enter a valid Student ID.");
+      }
+    }
 
-const manualBtn = document.getElementById("manualBtn");
-const manualId = document.getElementById("manualId");
-const manualMode = document.getElementById("manualMode");
+    let html5QrCode;
+    function startScanner() {
+      html5QrCode = new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          html5QrCode.stop();
+          navigator.geolocation.getCurrentPosition(
+            pos => sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude),
+            () => sendScanData(qrCodeMessage)
+          );
+        },
+        errorMessage => {}
+      ).catch(err => console.log(err));
+    }
 
-manualBtn.addEventListener("click", ()=>{
-  const id = manualId.value.trim();
-  if(id){
-    const isManualOverride = manualMode.checked;
-    navigator.geolocation.getCurrentPosition(pos=>{
-      sendScanData(id,pos.coords.latitude,pos.coords.longitude,isManualOverride);
-    }, ()=>{
-      sendScanData(id,"","",isManualOverride);
+    document.getElementById("manualMode").addEventListener("change", e => {
+      if(e.target.checked) html5QrCode.stop();
+      else startScanner();
     });
-    manualId.value="";
-  }
-});
-</script>
 
+    startScanner();
+  </script>
 </body>
 </html>
