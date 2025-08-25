@@ -4,31 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- PWA: App name -->
   <title>RAPID-NET QR Scanner</title>
 
-  <!-- PWA: Manifest -->
+  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
-
-  <!-- PWA: Theme color -->
   <meta name="theme-color" content="#28a745">
-
-  <!-- PWA: Mobile capabilities -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="application-name" content="RAPID-NET">
-
-  <!-- iOS support -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="RAPID-NET">
+  <meta name="description" content="RAPID-NET QR Scanner - Fast and reliable QR attendance system.">
 
   <!-- Icons -->
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
-
-  <!-- Optional: SEO -->
-  <meta name="description" content="RAPID-NET QR Scanner - Fast and reliable QR attendance system.">
 
   <!-- QR Scanner library -->
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -37,18 +28,33 @@
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f8f9fa; }
     header { background-color:#28a745; color:white; text-align:center; padding:20px 0; font-size:2em; font-weight:bold; }
     main { padding:15px; max-width:500px; margin:auto; }
-    .selector, .manual-entry { margin-bottom:15px; }
-    .manual-entry input { width:100%; padding:10px; font-size:1em; }
     #reader { width:100%; margin-bottom:15px; }
-    #status { font-weight:bold; margin-bottom:15px; }
-    table { width:100%; border-collapse: collapse; margin-bottom:30px; }
-    th, td { border:1px solid #ccc; padding:6px; text-align:center; font-size:0.9em; }
-    .in { background-color: #c6efce; }
-    .out { background-color: #ffc7ce; }
+    #status { font-weight:bold; margin-bottom:15px; text-align:center; }
   </style>
 </head>
 <body>
-  <!-- unchanged body content here -->
-  ...
+  <header>RAPID-NET QR Scanner</header>
+  <main>
+    <div id="reader"></div>
+    <div id="status">Waiting for QR code...</div>
+  </main>
+
+  <script>
+    function onScanSuccess(decodedText, decodedResult) {
+      document.getElementById("status").innerText = `Scanned: ${decodedText}`;
+      console.log(`Code matched = ${decodedText}`, decodedResult);
+    }
+
+    function onScanFailure(error) {
+      console.warn(`QR error = ${error}`);
+    }
+
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader",
+      { fps: 10, qrbox: 250 }
+    );
+
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+  </script>
 </body>
 </html>
