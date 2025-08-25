@@ -1,129 +1,136 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>RAPID-NET QR Scanner</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background: #f8f8f8;
-    margin: 0;
-    padding: 0;
-  }
-  #reader {
-    width: 300px;
-    height: 300px;
-    margin: 20px auto;
-    border: 2px solid #000;
-    border-radius: 10px;
-    background: #000;
-  }
-  #status { margin-top: 10px; font-weight: bold; }
-  table { border-collapse: collapse; width: 90%; margin: 15px auto; }
-  th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-  .in { background-color: #c6efce; }
-  .out { background-color: #9fc5e8; }
-</style>
+  <meta charset="UTF-8">
+  <title>RAPID-NET QR Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f8f8f8;
+    }
+    h2 { margin-bottom: 10px; }
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: 10px auto;
+      border: 2px solid #000;
+      background: #000;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 15px;
+    }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    .present { background-color: #c6efce; }
+    .late { background-color: #ffeb9c; }
+    .very-late { background-color: #f4cccc; }
+    .going-home { background-color: #9fc5e8; }
+    .absent { background-color: #ffc7ce; }
+    button { margin: 10px 0; padding: 10px 15px; font-size: 16px; cursor: pointer; }
+  </style>
 </head>
 <body>
+  <h2>RAPID-NET QR Scanner</h2>
 
-<h2>RAPID-NET QR Scanner</h2>
+  <!-- IN/OUT selector -->
+  <label><input type="radio" name="scanType" value="in" checked> IN</label>
+  <label><input type="radio" name="scanType" value="out"> OUT</label>
 
-<label><input type="radio" name="scanType" value="in" checked> IN</label>
-<label><input type="radio" name="scanType" value="out"> OUT</label>
+  <div id="reader"></div>
+  <button onclick="startScanner()">Start Scanner</button>
+  <p id="status">Waiting for scan...</p>
 
-<div id="reader"></div>
-<p id="status">Waiting for scan...</p>
+  <!-- Live table -->
+  <table id="scan-log">
+    <thead>
+      <tr>
+        <th>Student ID</th>
+        <th>Student Name</th>
+        <th>Direction</th>
+        <th>Status</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-<table id="scan-log">
-  <thead>
-    <tr>
-      <th>Student ID</th>
-      <th>Student Name</th>
-      <th>Direction</th>
-      <th>Status</th>
-      <th>Time</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+  <script>
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
 
-<script>
-  const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
+    let html5QrCode;
 
-  function getScanType() {
-    return document.querySelector('input[name="scanType"]:checked').value;
-  }
+    function getScanType() {
+      return document.querySelector('input[name="scanType"]:checked').value;
+    }
 
-  function sendScanData(studentId, lat = "", lng = "") {
-    const scanType = getScanType();
-    fetch(scriptURL, {
-      method: 'POST',
-      body: new URLSearchParams({
-        studentId: studentId,
-        scanType: scanType,
-        lat: lat,
-        lng: lng
+    function sendScanData(studentId, lat = "", lng = "") {
+      const scanType = getScanType();
+      fetch(scriptURL, {
+        method: 'POST',
+        body: new URLSearchParams({
+          studentId: studentId,
+          scanType: scanType,
+          lat: lat,
+          lng: lng
+        })
       })
-    })
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction})`;
 
-      // Update live table
-      const tbody = document.querySelector("#scan-log tbody");
-      const row = tbody.insertRow(0);
-      row.className = data.direction;
-      row.insertCell(0).innerText = data.studentId;
-      row.insertCell(1).innerText = data.studentName;
-      row.insertCell(2).innerText = data.direction.toUpperCase();
-      row.insertCell(3).innerText = data.status;
-      row.insertCell(4).innerText = new Date().toLocaleTimeString();
+        // Update live table
+        const tbody = document.querySelector("#scan-log tbody");
+        const row = tbody.insertRow(0);
+        row.className = data.direction.toLowerCase().replace(" ", "-");
+        row.insertCell(0).innerText = data.studentId;
+        row.insertCell(1).innerText = data.studentName;
+        row.insertCell(2).innerText = data.direction.toUpperCase();
+        row.insertCell(3).innerText = data.direction;
+        row.insertCell(4).innerText = new Date().toLocaleTimeString();
 
-      // Restart scanner after 2 seconds
-      setTimeout(() => {
-        document.getElementById("status").innerText = "Waiting for scan...";
-        startScanner();
-      }, 2000);
-    })
-    .catch(error => {
-      document.getElementById("status").innerText = "❌ Error: " + error;
-      setTimeout(() => {
-        document.getElementById("status").innerText = "Waiting for scan...";
-        startScanner();
-      }, 3000);
-    });
-  }
+        // Restart scanner after 2 seconds
+        setTimeout(() => {
+          document.getElementById("status").innerText = "Waiting for scan...";
+          startScanner();
+        }, 2000);
+      })
+      .catch(error => {
+        document.getElementById("status").innerText = "❌ Error: " + error;
+        setTimeout(() => {
+          document.getElementById("status").innerText = "Waiting for scan...";
+          startScanner();
+        }, 3000);
+      });
+    }
 
-  let html5QrCode;
+    function startScanner() {
+      if (html5QrCode) html5QrCode.stop().catch(()=>{});
+      html5QrCode = new Html5Qrcode("reader");
 
-  function startScanner() {
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      qrCodeMessage => {
-        html5QrCode.stop().then(() => {
-          navigator.geolocation.getCurrentPosition(function(position) {
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        qrCodeMessage => {
+          html5QrCode.stop();
+          navigator.geolocation.getCurrentPosition(position => {
             sendScanData(qrCodeMessage, position.coords.latitude, position.coords.longitude);
-          }, function() {
+          }, () => {
             sendScanData(qrCodeMessage);
           });
-        });
-      },
-      err => {
-        // console.log(`QR Scan error: ${err}`);
-      }
-    ).catch(err => {
-      document.getElementById("status").innerText = "❌ Cannot access camera: " + err;
-    });
-  }
+        },
+        errorMessage => {
+          // console.log(`QR Scan error: ${errorMessage}`);
+        }
+      ).catch(err => {
+        document.getElementById("status").innerText = "❌ Camera access denied or not available";
+      });
+    }
 
-  window.onload = startScanner;
-</script>
-
+    // Automatically start scanner on page load
+    startScanner();
+  </script>
 </body>
 </html>
