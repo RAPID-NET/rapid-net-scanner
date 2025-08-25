@@ -1,109 +1,108 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>RAPID-NET QR Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
   <style>
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-    .in { background-color: #c6efce; }
-    .out { background-color: #ffc7ce; }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #reader { width: 500px; margin-bottom: 20px; }
+    #status { margin-top: 20px; font-size: 1.2em; font-weight: bold; }
+    #manualForm { margin-top: 20px; border: 1px solid #ccc; padding: 15px; width: 300px; }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
   <h2>RAPID-NET QR Scanner</h2>
+  <div id="reader"></div>
+  <div id="status"></div>
 
-  <!-- IN/OUT selector -->
-  <label><input type="radio" name="scanType" value="in" checked> IN</label>
-  <label><input type="radio" name="scanType" value="out"> OUT</label>
-
-  <div id="reader" style="width:300px; margin-top:10px;"></div>
-  <p id="status">Waiting for scan...</p>
-
-  <!-- Live table -->
-  <table id="scan-log">
-    <thead>
-      <tr>
-        <th>Student ID</th>
-        <th>Student Name</th>
-        <th>Direction</th>
-        <th>Status</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <h3>Manual Override (Optional)</h3>
+  <div id="manualForm">
+    <label>Student ID:</label><br>
+    <input type="text" id="manualId" placeholder="Enter Student ID"><br><br>
+    <label>Status:</label><br>
+    <select id="manualStatus">
+      <option value="Present">Present</option>
+      <option value="Late">Late</option>
+      <option value="Very Late">Very Late</option>
+      <option value="Going Home">Going Home</option>
+      <option value="Absent">Absent</option>
+    </select><br><br>
+    <button onclick="submitManual()">Submit Manual Override</button>
+  </div>
 
   <script>
-    const scriptURL = "https://script.google.com/macros/s/AKfycbzAlDOj7sQiIx6r18HmtFbqjQTf2z4fkWi05Kpe5K3hUJm-1-CFxcGdVvyk1eM3WMDZ/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdIz9DEsXWdXQWZ5xx6xL3cE8BNlBRkIDUUiz4a-HwJdGy_DO3TigTAhS7GinBbYpO/exec";
 
-    function getScanType() {
-      return document.querySelector('input[name="scanType"]:checked').value;
+    // Initialize HTML5 QR Code scanner
+    function onScanSuccess(decodedText, decodedResult) {
+      const studentId = decodedText.trim();
+      submitScan(studentId, "in");
     }
 
-    function sendScanData(studentId, lat = "", lng = "") {
-      const scanType = getScanType();
+    function onScanError(errorMessage) {
+      console.warn("Scan error:", errorMessage);
+    }
 
-      fetch(scriptURL, {
-        method: 'POST',
-        body: new URLSearchParams({
-          studentId: studentId,
-          scanType: scanType,
-          lat: lat,
-          lng: lng
-        })
+    const html5QrcodeScanner = new Html5Qrcode("reader");
+    html5QrcodeScanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess,
+      onScanError
+    );
+
+    function submitScan(studentId, scanType) {
+      const statusDiv = document.getElementById("status");
+      statusDiv.textContent = "Sending scan...";
+      fetch(`${SCRIPT_URL}?studentId=${encodeURIComponent(studentId)}&scanType=${scanType}`, {
+        method: "POST"
       })
       .then(response => response.json())
       .then(data => {
-        document.getElementById("status").innerText = `✅ ${data.studentName} (${data.status})`;
-
-        // Update live table
-        const tbody = document.querySelector("#scan-log tbody");
-        const row = tbody.insertRow(0);
-        row.className = data.direction;
-        row.insertCell(0).innerText = data.studentId;
-        row.insertCell(1).innerText = data.studentName;
-        row.insertCell(2).innerText = data.direction.toUpperCase();
-        row.insertCell(3).innerText = data.status;
-        row.insertCell(4).innerText = new Date().toLocaleTimeString();
-
-        // Restart scanner after 2 seconds
-        setTimeout(() => {
-          document.getElementById("status").innerText = "Waiting for scan...";
-          startScanner();
-        }, 2000);
+        if(data.error) {
+          statusDiv.textContent = data.error;
+          statusDiv.className = "error";
+        } else {
+          statusDiv.textContent = `✅ ${data.studentName} - ${data.direction}`;
+          statusDiv.className = "success";
+        }
       })
-      .catch(error => {
-        document.getElementById("status").innerText = "❌ Error: " + error;
-        setTimeout(() => {
-          document.getElementById("status").innerText = "Waiting for scan...";
-          startScanner();
-        }, 3000);
+      .catch(err => {
+        statusDiv.textContent = "❌ Error sending scan";
+        statusDiv.className = "error";
+        console.error(err);
       });
     }
 
-    let html5QrCode;
+    function submitManual() {
+      const studentId = document.getElementById("manualId").value.trim();
+      const status = document.getElementById("manualStatus").value;
+      if(!studentId) return alert("Please enter Student ID");
 
-    function startScanner() {
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        qrCodeMessage => {
-          html5QrCode.stop();
-          navigator.geolocation.getCurrentPosition(function(position) {
-            sendScanData(qrCodeMessage, position.coords.latitude, position.coords.longitude);
-          }, function() {
-            sendScanData(qrCodeMessage);
-          });
-        },
-        errorMessage => {
-          // console.log(`QR Scan error: ${errorMessage}`);
+      const statusDiv = document.getElementById("status");
+      statusDiv.textContent = "Sending manual override...";
+      fetch(`${SCRIPT_URL}?studentId=${encodeURIComponent(studentId)}&scanType=manual&manualStatus=${encodeURIComponent(status)}`, {
+        method: "POST"
+      })
+      .then(response => response.json())
+      .then(data => {
+        if(data.error) {
+          statusDiv.textContent = data.error;
+          statusDiv.className = "error";
+        } else {
+          statusDiv.textContent = `✅ ${data.studentName} - ${data.direction} (Manual Override)`;
+          statusDiv.className = "success";
         }
-      );
+      })
+      .catch(err => {
+        statusDiv.textContent = "❌ Error sending manual override";
+        statusDiv.className = "error";
+        console.error(err);
+      });
     }
-
-    startScanner();
   </script>
 </body>
 </html>
