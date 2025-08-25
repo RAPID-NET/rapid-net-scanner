@@ -2,7 +2,6 @@
 <html>
 <head>
   <title>RAPID-NET QR Scanner</title>
-  <!-- Local HTML5 QR Code library -->
   <script src="libs/html5-qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
@@ -69,6 +68,8 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     manualStatus: manualOverride ? "Manual Override" : ""
   };
 
+  console.log("Sending payload:", payload); // Debugging
+
   fetch(scriptURL, {
     method: 'POST',
     body: new URLSearchParams(payload)
@@ -89,31 +90,51 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = data.status;
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 2000);
   })
   .catch(err => {
     document.getElementById("status").innerText = "❌ Error: "+err;
-    setTimeout(()=>{ document.getElementById("status").innerText="Waiting for scan..."; startScanner(); },3000);
   });
 }
 
-let html5QrCode;
-
 function startScanner(){
   html5QrCode = new Html5Qrcode("reader", false);
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps:10, qrbox:250, showTorchButton:false, showZoomButtons:false, aspectRatio:1.0 },
-    qrCodeMessage => {
-      html5QrCode.stop();
-      navigator.geolocation.getCurrentPosition(pos=>{
-        sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-      }, ()=>{
-        sendScanData(qrCodeMessage,"","",false);
-      });
-    },
-    errorMessage => { /* optional: handle scan errors */ }
-  );
+
+  Html5Qrcode.getCameras().then(cameras => {
+    if(cameras && cameras.length){
+      let cameraId = cameras[0].id;
+      for(let cam of cameras){
+        if(cam.label.toLowerCase().includes("back") || cam.label.toLowerCase().includes("rear")){
+          cameraId = cam.id;
+          break;
+        }
+      }
+
+      html5QrCode.start(
+        { deviceId: { exact: cameraId } },
+        { fps:10, qrbox:250, showTorchButton:false, showZoomButtons:false },
+        qrCodeMessage => {
+          // Restart scanner immediately
+          startScanner();
+
+          const isTestingMode = document.getElementById("manualMode").checked;
+
+          if(isTestingMode){
+            // Ignore geolocation for testing
+            sendScanData(qrCodeMessage, "", "", true);
+          } else {
+            navigator.geolocation.getCurrentPosition(pos=>{
+              sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+            }, ()=>{
+              sendScanData(qrCodeMessage,"","",false);
+            });
+          }
+        },
+        errorMessage => { /* optional: handle scan errors */ }
+      );
+    }
+  }).catch(err => {
+    document.getElementById("status").innerText = "❌ Camera not found: " + err;
+  });
 }
 
 startScanner();
@@ -126,11 +147,15 @@ manualBtn.addEventListener("click", ()=>{
   const id = manualId.value.trim();
   if(id){
     const isManualOverride = manualMode.checked;
-    navigator.geolocation.getCurrentPosition(pos=>{
-      sendScanData(id,pos.coords.latitude,pos.coords.longitude,isManualOverride);
-    }, ()=>{
-      sendScanData(id,"","",isManualOverride);
-    });
+    if(isManualOverride){
+      sendScanData(id,"","",true);
+    } else {
+      navigator.geolocation.getCurrentPosition(pos=>{
+        sendScanData(id,pos.coords.latitude,pos.coords.longitude,false);
+      }, ()=>{
+        sendScanData(id,"","",false);
+      });
+    }
     manualId.value="";
   }
 });
