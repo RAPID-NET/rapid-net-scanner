@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>RAPID-NET QR Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 10px; padding:0; }
     h2, h3 { text-align: center; }
@@ -44,16 +44,17 @@
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdIz9DEsXWdXQWZ5xx6xL3cE8BNlBRkIDUUiz4a-HwJdGy_DO3TigTAhS7GinBbYpO/exec";
 
-    // Initialize HTML5 QR Code scanner with fallback
+    // Initialize QR scanner after page load
+    window.addEventListener("DOMContentLoaded", () => {
+      startScanner();
+    });
+
     function startScanner() {
       const html5QrcodeScanner = new Html5Qrcode("reader");
-
-      // Try environment (back camera), fallback to user (front camera)
       const configList = [{ facingMode: "environment" }, { facingMode: "user" }];
 
-      let started = false;
-      const tryStart = (index) => {
-        if (index >= configList.length) {
+      let tryStart = (index) => {
+        if(index >= configList.length){
           document.getElementById("status").textContent = "❌ No camera found or access denied";
           document.getElementById("status").className = "error";
           return;
@@ -64,9 +65,9 @@
           onScanSuccess,
           onScanError
         ).then(() => {
-          started = true;
+          console.log("Scanner started with config", configList[index]);
         }).catch(err => {
-          tryStart(index + 1); // fallback to next camera config
+          tryStart(index + 1);
         });
       };
       tryStart(0);
@@ -80,8 +81,6 @@
     function onScanError(errorMessage) {
       console.warn("Scan error:", errorMessage);
     }
-
-    startScanner(); // start scanner on page load
 
     function submitScan(studentId, scanType) {
       const statusDiv = document.getElementById("status");
