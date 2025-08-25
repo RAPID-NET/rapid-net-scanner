@@ -5,10 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RAPID-NET QR Scanner</title>
 
-  <!-- Minimal CSP -->
-  <meta http-equiv="Content-Security-Policy" 
-        content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://script.google.com;">
-
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2e7d32">
@@ -16,9 +12,6 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-
-  <!-- QR Scanner Library -->
-  <script type="module" src="https://unpkg.com/html5-qrcode/esm/html5-qrcode.min.js"></script>
 
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f8f9fa; }
@@ -65,7 +58,10 @@
     </table>
   </main>
 
+  <!-- Use ES Module to import html5-qrcode -->
   <script type="module">
+    import { Html5Qrcode } from "https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js";
+
     const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
 
     function getScanType() {
