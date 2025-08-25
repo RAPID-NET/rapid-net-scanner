@@ -96,6 +96,8 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
   });
 }
 
+let html5QrCode;
+
 function startScanner(){
   html5QrCode = new Html5Qrcode("reader", false);
 
@@ -113,21 +115,27 @@ function startScanner(){
         { deviceId: { exact: cameraId } },
         { fps:10, qrbox:250, showTorchButton:false, showZoomButtons:false },
         qrCodeMessage => {
-          // Restart scanner immediately
-          startScanner();
-
           const isTestingMode = document.getElementById("manualMode").checked;
 
-          if(isTestingMode){
-            // Ignore geolocation for testing
-            sendScanData(qrCodeMessage, "", "", true);
-          } else {
-            navigator.geolocation.getCurrentPosition(pos=>{
-              sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-            }, ()=>{
-              sendScanData(qrCodeMessage,"","",false);
-            });
-          }
+          // Stop scanner before restarting
+          html5QrCode.stop().then(() => {
+            // Send scan data asynchronously
+            if(isTestingMode){
+              sendScanData(qrCodeMessage, "", "", true);
+            } else {
+              navigator.geolocation.getCurrentPosition(pos=>{
+                sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+              }, ()=>{
+                sendScanData(qrCodeMessage,"","",false);
+              });
+            }
+
+            // Restart scanner after a short delay
+            setTimeout(() => startScanner(), 500);
+          }).catch(err => {
+            document.getElementById("status").innerText = "❌ Scanner stop failed: " + err;
+            setTimeout(() => startScanner(), 1000);
+          });
         },
         errorMessage => { /* optional: handle scan errors */ }
       );
