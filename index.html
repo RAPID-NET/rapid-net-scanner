@@ -2,12 +2,13 @@
 <html>
 <head>
   <title>RAPID-NET QR Scanner</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Use local or CDN library -->
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     #header { background-color: #4CAF50; color: white; padding: 15px; text-align: center; font-size: 28px; font-weight: bold; }
     #controls { padding: 15px; text-align: center; }
-    #reader { width: 300px; margin: 10px auto; }
+    #reader { width: 300px; margin: 10px auto; border: none; }
     #manual-entry { margin-top: 10px; text-align: center; }
     #manual-entry input { padding: 5px; width: 150px; font-size: 16px; }
     #manual-entry button { padding: 6px 12px; font-size: 16px; margin-left: 5px; }
@@ -100,10 +101,10 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
 let html5QrCode;
 
 function startScanner(){
-  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode = new Html5Qrcode("reader", false); // false disables verbose logging & overlays
   html5QrCode.start(
     { facingMode: "environment" },
-    { fps:10, qrbox:250 },
+    { fps:10, qrbox:250, showTorchButton:false, showZoomButtons:false, aspectRatio:1.0 },
     qrCodeMessage => {
       html5QrCode.stop();
       navigator.geolocation.getCurrentPosition(pos=>{
@@ -112,7 +113,7 @@ function startScanner(){
         sendScanData(qrCodeMessage,"","",false);
       });
     },
-    errorMessage => { /* console.log(errorMessage); */ }
+    errorMessage => { /* optional: handle scan errors */ }
   );
 }
 
