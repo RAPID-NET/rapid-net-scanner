@@ -68,7 +68,7 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     manualStatus: manualOverride ? "Manual Override" : ""
   };
 
-  console.log("Sending payload:", payload); // Debugging
+  console.log("Sending payload:", payload);
 
   fetch(scriptURL, {
     method: 'POST',
@@ -117,20 +117,21 @@ function startScanner(){
         qrCodeMessage => {
           const isTestingMode = document.getElementById("manualMode").checked;
 
-          // Stop scanner before restarting
+          // Stop scanner before restarting to avoid errors
           html5QrCode.stop().then(() => {
-            // Send scan data asynchronously
+            // If testing mode, ignore geolocation
             if(isTestingMode){
               sendScanData(qrCodeMessage, "", "", true);
             } else {
               navigator.geolocation.getCurrentPosition(pos=>{
                 sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
               }, ()=>{
+                // If geolocation fails, still send data
                 sendScanData(qrCodeMessage,"","",false);
               });
             }
 
-            // Restart scanner after a short delay
+            // Restart scanner safely after short delay
             setTimeout(() => startScanner(), 500);
           }).catch(err => {
             document.getElementById("status").innerText = "❌ Scanner stop failed: " + err;
