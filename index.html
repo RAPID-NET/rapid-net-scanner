@@ -1,136 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>RAPID-NET QR Scanner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 10px; padding:0; }
-    h2, h3 { text-align: center; }
-    #reader { width: 100%; max-width: 500px; height: 400px; margin: 10px auto; border: 2px solid #ccc; border-radius: 10px; }
-    #status { margin-top: 10px; font-size: 1.2em; font-weight: bold; text-align: center; }
-    #manualForm { margin: 20px auto; border: 1px solid #ccc; padding: 15px; width: 95%; max-width: 350px; border-radius: 10px; background: #f9f9f9; }
-    #manualForm input, #manualForm select, #manualForm button { width: 100%; padding: 8px; margin-top: 5px; }
-    .success { color: green; text-align: center; }
-    .error { color: red; text-align: center; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAPID-NET QR Scanner</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 0; text-align:center; background:#f5f5f5; }
+  h1 { background:#4CAF50; color:white; margin:0; padding:10px; }
+  #reader { width: 100%; max-width: 400px; margin: 20px auto; border: 2px solid #4CAF50; border-radius:10px; }
+  #status { margin-top: 10px; font-weight: bold; font-size: 1.2em; }
+  #manual { margin: 20px auto; max-width: 400px; background:white; padding: 15px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.2); }
+  input[type=text], select { width: 100%; padding: 10px; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
+  button { width: 100%; padding:10px; background:#4CAF50; color:white; border:none; border-radius:5px; font-size:1em; cursor:pointer; }
+  button:hover { background:#45a049; }
+</style>
 </head>
 <body>
-  <h2>RAPID-NET QR Scanner</h2>
+<h1>RAPID-NET QR Scanner</h1>
 
-  <!-- QR Scanner -->
-  <div id="reader"></div>
-  <div id="status"></div>
+<div id="reader"></div>
+<div id="status">Status: Waiting for scan...</div>
 
-  <!-- Manual Override Form -->
+<div id="manual">
   <h3>Manual Override (Optional)</h3>
-  <div id="manualForm">
-    <label>Student ID:</label>
-    <input type="text" id="manualId" placeholder="Enter Student ID">
-    
-    <label>Status:</label>
-    <select id="manualStatus">
-      <option value="Present">Present</option>
-      <option value="Late">Late</option>
-      <option value="Very Late">Very Late</option>
-      <option value="Going Home">Going Home</option>
-      <option value="Absent">Absent</option>
-    </select>
-    
-    <button onclick="submitManual()">Submit Manual Override</button>
-  </div>
+  <input type="text" id="studentId" placeholder="Enter Student ID">
+  <select id="manualStatus">
+    <option value="">Select Status</option>
+    <option value="Present">Present</option>
+    <option value="Late">Late</option>
+    <option value="Very Late">Very Late</option>
+    <option value="Going Home">Going Home</option>
+    <option value="Absent">Absent</option>
+  </select>
+  <button id="submitManual">Submit Manual Override</button>
+</div>
 
-  <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdIz9DEsXWdXQWZ5xx6xL3cE8BNlBRkIDUUiz4a-HwJdGy_DO3TigTAhS7GinBbYpO/exec";
+<script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdIz9DEsXWdXQWZ5xx6xL3cE8BNlBRkIDUUiz4a-HwJdGy_DO3TigTAhS7GinBbYpO/exec";
+const statusDiv = document.getElementById("status");
 
-    // Initialize QR scanner after page load
-    window.addEventListener("DOMContentLoaded", () => {
-      startScanner();
+function postScan(studentId, scanType="in", manualStatus=null){
+  const lat = 0; // optional: implement geolocation if desired
+  const lng = 0;
+
+  const formData = new URLSearchParams();
+  formData.append("studentId", studentId);
+  formData.append("scanType", scanType);
+  if(manualStatus) formData.append("manualStatus", manualStatus);
+  formData.append("lat", lat);
+  formData.append("lng", lng);
+
+  fetch(SCRIPT_URL, { method: "POST", body: formData })
+    .then(res=>res.json())
+    .then(data=>{
+      if(data.error) statusDiv.innerHTML = "❌ "+data.error;
+      else statusDiv.innerHTML = "✅ "+data.studentName + " - " + data.direction;
+    })
+    .catch(err=>{
+      console.error(err);
+      statusDiv.innerHTML = "❌ Error posting scan.";
     });
+}
 
-    function startScanner() {
-      const html5QrcodeScanner = new Html5Qrcode("reader");
-      const configList = [{ facingMode: "environment" }, { facingMode: "user" }];
-
-      let tryStart = (index) => {
-        if(index >= configList.length){
-          document.getElementById("status").textContent = "❌ No camera found or access denied";
-          document.getElementById("status").className = "error";
-          return;
-        }
-        html5QrcodeScanner.start(
-          configList[index],
-          { fps: 10, qrbox: 250 },
-          onScanSuccess,
-          onScanError
-        ).then(() => {
-          console.log("Scanner started with config", configList[index]);
-        }).catch(err => {
-          tryStart(index + 1);
-        });
-      };
-      tryStart(0);
-    }
-
-    function onScanSuccess(decodedText, decodedResult) {
+// Initialize QR Scanner
+window.addEventListener("DOMContentLoaded", function(){
+  const html5QrcodeScanner = new Html5Qrcode("reader");
+  html5QrcodeScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    decodedText => {
       const studentId = decodedText.trim();
-      submitScan(studentId, "in");
-    }
+      postScan(studentId, "in");
+    },
+    errorMessage => { /* ignore scan errors */ }
+  );
+});
 
-    function onScanError(errorMessage) {
-      console.warn("Scan error:", errorMessage);
-    }
-
-    function submitScan(studentId, scanType) {
-      const statusDiv = document.getElementById("status");
-      statusDiv.textContent = "Sending scan...";
-      fetch(`${SCRIPT_URL}?studentId=${encodeURIComponent(studentId)}&scanType=${scanType}`, {
-        method: "POST"
-      })
-      .then(response => response.json())
-      .then(data => {
-        if(data.error){
-          statusDiv.textContent = data.error;
-          statusDiv.className = "error";
-        } else {
-          statusDiv.textContent = `✅ ${data.studentName} - ${data.direction}`;
-          statusDiv.className = "success";
-        }
-      })
-      .catch(err => {
-        statusDiv.textContent = "❌ Error sending scan";
-        statusDiv.className = "error";
-        console.error(err);
-      });
-    }
-
-    function submitManual() {
-      const studentId = document.getElementById("manualId").value.trim();
-      const status = document.getElementById("manualStatus").value;
-      if(!studentId) return alert("Please enter Student ID");
-
-      const statusDiv = document.getElementById("status");
-      statusDiv.textContent = "Sending manual override...";
-      fetch(`${SCRIPT_URL}?studentId=${encodeURIComponent(studentId)}&scanType=manual&manualStatus=${encodeURIComponent(status)}`, {
-        method: "POST"
-      })
-      .then(response => response.json())
-      .then(data => {
-        if(data.error){
-          statusDiv.textContent = data.error;
-          statusDiv.className = "error";
-        } else {
-          statusDiv.textContent = `✅ ${data.studentName} - ${data.direction} (Manual Override)`;
-          statusDiv.className = "success";
-        }
-      })
-      .catch(err => {
-        statusDiv.textContent = "❌ Error sending manual override";
-        statusDiv.className = "error";
-        console.error(err);
-      });
-    }
-  </script>
+// Manual override submit
+document.getElementById("submitManual").addEventListener("click", ()=>{
+  const studentId = document.getElementById("studentId").value.trim();
+  const manualStatus = document.getElementById("manualStatus").value;
+  if(!studentId || !manualStatus){ alert("Please enter ID and select status."); return; }
+  postScan(studentId, "manual", manualStatus);
+});
+</script>
 </body>
 </html>
