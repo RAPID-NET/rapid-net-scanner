@@ -1,35 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>RAPID-NET QR Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- PWA manifest -->
+  
+  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#28a745">
+  <meta name="theme-color" content="#2e7d32">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
-  <!-- QR Scanner library -->
+  <!-- QR Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f8f9fa; }
-    header {
-      background-color:#28a745; color:white; text-align:center;
-      padding:15px 0; font-size:1.8em; font-weight:bold;
-      display: flex; align-items: center; justify-content: center;
-      gap: 10px;
-    }
-    header img { height: 40px; }
+    header { background-color:#28a745; color:white; text-align:center; padding:20px 0; font-size:2em; font-weight:bold; }
     main { padding:15px; max-width:500px; margin:auto; }
     .selector, .manual-entry { margin-bottom:15px; }
     .manual-entry input { width:100%; padding:10px; font-size:1em; }
     #reader { width:100%; margin-bottom:15px; }
-    #status { font-weight:bold; margin-bottom:15px; text-align:center; }
+    #status { font-weight:bold; margin-bottom:15px; }
     table { width:100%; border-collapse: collapse; margin-bottom:30px; }
     th, td { border:1px solid #ccc; padding:6px; text-align:center; font-size:0.9em; }
     .in { background-color: #c6efce; }
@@ -37,29 +30,22 @@
   </style>
 </head>
 <body>
-  <header>
-    <img src="icons/icon-192.png" alt="Logo">
-    RAPID-NET QR SCANNER
-  </header>
+  <header>RAPID-NET QR SCANNER</header>
   <main>
-    <!-- IN/OUT selector -->
     <div class="selector">
       <label><input type="radio" name="scanType" value="in" checked> IN</label>
       <label><input type="radio" name="scanType" value="out"> OUT</label>
       <label><input type="checkbox" id="manualMode"> Manual / Testing Mode</label>
     </div>
 
-    <!-- QR Scanner -->
     <div id="reader"></div>
     <p id="status">Waiting for scan...</p>
 
-    <!-- Manual student ID input -->
     <div class="manual-entry">
       <input type="text" id="manualStudentId" placeholder="Enter Student ID manually">
       <button onclick="manualScan()">Submit Manual Entry</button>
     </div>
 
-    <!-- Live scan table -->
     <table id="scan-log">
       <thead>
         <tr>
@@ -90,7 +76,6 @@
       .then(response => response.json())
       .then(data => {
         document.getElementById("status").innerText = `✅ ${data.studentName} (${data.status})`;
-
         const tbody = document.querySelector("#scan-log tbody");
         const row = tbody.insertRow(0);
         row.className = data.direction;
@@ -152,7 +137,6 @@
     startScanner();
   </script>
 
-  <!-- Register service worker -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
