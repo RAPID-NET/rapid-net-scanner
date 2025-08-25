@@ -1,64 +1,61 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RAPID-NET QR Scanner</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 10px;
-    }
-    h1 {
-      color: #0f9d58;
-      margin-bottom: 10px;
-    }
-    #reader {
-      width: 90%;
-      max-width: 400px;
-      margin: auto;
-      border: 2px solid #0f9d58;
-      border-radius: 8px;
-      background-color: #000;
-    }
-    #status {
-      margin: 10px 0;
+    body { font-family: Arial, sans-serif; padding: 0; margin: 0; background-color: #f4f4f4; }
+    .header { 
+      background-color: #2e7d32; 
+      color: #ffffff; 
+      text-align: center; 
+      padding: 15px 0; 
+      font-size: 2em; 
       font-weight: bold;
     }
-    table { 
-      border-collapse: collapse; 
-      width: 95%; 
-      margin: 10px auto;
-      font-size: 14px;
+    #reader { 
+      width: 90%; 
+      max-width: 400px; 
+      margin: 20px auto; 
+      border: 2px solid #ccc; 
+      border-radius: 8px; 
+      background: #000; 
     }
-    th, td { 
-      border: 1px solid #ccc; 
-      padding: 6px; 
-      text-align: center; 
+    table { border-collapse: collapse; width: 95%; margin: 20px auto; background: #fff; border-radius: 6px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    .manual { background-color: #ffcc99; }
+    #status { text-align: center; font-weight: bold; margin-top: 10px; font-size: 1.2em; }
+    .manual-entry { margin-top: 15px; text-align: center; }
+    input[type="text"] { padding: 5px; width: 150px; }
+    button { padding: 6px 12px; margin-left: 5px; background-color: #2e7d32; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background-color: #1b5e20; }
+    @media (max-width: 500px) {
+      #reader { width: 95%; }
+      table { width: 95%; font-size: 0.9em; }
     }
-    .in { background-color: #c6efce; }
-    .out { background-color: #9fc5e8; }
-    .manual { background-color: #f4cccc; }
-    label { margin-right: 10px; }
   </style>
 </head>
 <body>
-  <h1>RAPID-NET QR SCANNER</h1>
+
+  <div class="header">RAPID-NET QR SCANNER</div>
 
   <!-- IN/OUT selector -->
-  <div>
+  <div style="text-align:center; margin-top:10px;">
     <label><input type="radio" name="scanType" value="in" checked> IN</label>
     <label><input type="radio" name="scanType" value="out"> OUT</label>
-    <label><input type="checkbox" id="manualOverride"> Manual / Testing Mode</label>
   </div>
 
-  <!-- QR Code Reader -->
+  <!-- QR Scanner -->
   <div id="reader"></div>
   <p id="status">Waiting for scan...</p>
 
-  <!-- Live table -->
+  <!-- Manual entry -->
+  <div class="manual-entry">
+    <input type="text" id="manual-id" placeholder="Enter Student ID">
+    <button onclick="manualScan()">Submit Manual Override</button>
+  </div>
+
+  <!-- Live scan table -->
   <table id="scan-log">
     <thead>
       <tr>
@@ -79,76 +76,79 @@
       return document.querySelector('input[name="scanType"]:checked').value;
     }
 
-    function sendScanData(studentId, lat = "", lng = "") {
-      const scanType = getScanType();
-      const manualMode = document.getElementById("manualOverride").checked;
+    function sendScanData(studentId, manual=false) {
+      const scanType = manual ? "manual" : getScanType();
+      const manualStatus = manual ? document.getElementById("manual-id").value.trim() || "Manual Override" : null;
 
+      navigator.geolocation.getCurrentPosition(function(position) {
+        postData(studentId, scanType, position.coords.latitude, position.coords.longitude, manualStatus);
+      }, function() {
+        postData(studentId, scanType, "", "", manualStatus);
+      });
+    }
+
+    function postData(studentId, scanType, lat, lng, manualStatus) {
       fetch(scriptURL, {
         method: 'POST',
         body: new URLSearchParams({
           studentId: studentId,
-          scanType: manualMode ? "manual" : scanType,
+          scanType: scanType,
           lat: lat,
           lng: lng,
-          manualStatus: manualMode ? "Manual Override" : ""
+          manualStatus: manualStatus
         })
       })
       .then(response => response.json())
       .then(data => {
-        document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction})`;
-
-        // Update live table
-        const tbody = document.querySelector("#scan-log tbody");
-        const row = tbody.insertRow(0);
-        row.className = data.direction.toLowerCase();
-        row.insertCell(0).innerText = data.studentId;
-        row.insertCell(1).innerText = data.studentName;
-        row.insertCell(2).innerText = data.direction.toUpperCase();
-        row.insertCell(3).innerText = data.status;
-        row.insertCell(4).innerText = new Date().toLocaleTimeString();
-
-        // Restart scanner after 2 seconds
+        const statusEl = document.getElementById("status");
+        if(data.error){
+          statusEl.innerText = "❌ " + data.error;
+        } else {
+          statusEl.innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
+          // Add to table
+          const tbody = document.querySelector("#scan-log tbody");
+          const row = tbody.insertRow(0);
+          row.className = data.direction.toLowerCase();
+          row.insertCell(0).innerText = data.studentId;
+          row.insertCell(1).innerText = data.studentName;
+          row.insertCell(2).innerText = data.direction.toUpperCase();
+          row.insertCell(3).innerText = data.status || "";
+          row.insertCell(4).innerText = new Date().toLocaleTimeString();
+        }
         setTimeout(() => {
           document.getElementById("status").innerText = "Waiting for scan...";
-          startScanner();
+          if(!manualStatus) startScanner();
         }, 2000);
       })
-      .catch(error => {
-        document.getElementById("status").innerText = "❌ Error: " + error;
-        setTimeout(() => {
-          document.getElementById("status").innerText = "Waiting for scan...";
-          startScanner();
-        }, 3000);
+      .catch(err => {
+        document.getElementById("status").innerText = "❌ Error: " + err;
+        setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 3000);
       });
+    }
+
+    function manualScan() {
+      const studentId = document.getElementById("manual-id").value.trim();
+      if(studentId) sendScanData(studentId, true);
+      document.getElementById("manual-id").value = "";
     }
 
     let html5QrCode;
 
     function startScanner() {
-      if(html5QrCode) html5QrCode.stop().catch(()=>{});
-
       html5QrCode = new Html5Qrcode("reader");
       html5QrCode.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: {width:250, height:250} },
+        { fps: 10, qrbox: 300 },
         qrCodeMessage => {
-          html5QrCode.stop().then(()=>{
-            navigator.geolocation.getCurrentPosition(function(position) {
-              sendScanData(qrCodeMessage, position.coords.latitude, position.coords.longitude);
-            }, function() {
-              sendScanData(qrCodeMessage);
-            });
-          });
+          html5QrCode.stop();
+          sendScanData(qrCodeMessage);
         },
         errorMessage => {
-          // Optional: console.log(`QR Scan error: ${errorMessage}`);
+          // console.log(`QR Scan error: ${errorMessage}`);
         }
-      ).catch(err=>{
-        document.getElementById("status").innerText = "❌ Camera error: " + err;
-      });
+      ).catch(err => console.log(err));
     }
 
-    // Start scanner on page load
     startScanner();
   </script>
 </body>
