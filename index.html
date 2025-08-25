@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RAPID-NET QR Scanner</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; text-align:center; background:#f5f5f5; }
-  h1 { background:#4CAF50; color:white; margin:0; padding:10px; }
-  #reader { width: 100%; max-width: 400px; margin: 20px auto; border: 2px solid #4CAF50; border-radius:10px; }
-  #status { margin-top: 10px; font-weight: bold; font-size: 1.2em; }
-  #manual { margin: 20px auto; max-width: 400px; background:white; padding: 15px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.2); }
-  input[type=text], select { width: 100%; padding: 10px; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
-  button { width: 100%; padding:10px; background:#4CAF50; color:white; border:none; border-radius:5px; font-size:1em; cursor:pointer; }
+  body { font-family: Arial, sans-serif; margin:0; padding:0; text-align:center; background:#f5f5f5; }
+  h1 { background:#4CAF50; color:white; margin:0; padding:10px; font-size:1.5em; }
+  #reader { width:100%; max-width:400px; height:300px; margin:20px auto; border:2px solid #4CAF50; border-radius:10px; }
+  #status { margin-top:10px; font-weight:bold; font-size:1.2em; }
+  #manual { margin:20px auto; max-width:400px; background:white; padding:15px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.2); }
+  input[type=text], select { width:100%; padding:10px; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
+  button { width:100%; padding:10px; background:#4CAF50; color:white; border:none; border-radius:5px; font-size:1em; cursor:pointer; }
   button:hover { background:#45a049; }
 </style>
 </head>
@@ -41,7 +41,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdIz9DEsXWdXQWZ5xx6
 const statusDiv = document.getElementById("status");
 
 function postScan(studentId, scanType="in", manualStatus=null){
-  const lat = 0; // optional: implement geolocation if desired
+  const lat = 0; // optional: implement geolocation
   const lng = 0;
 
   const formData = new URLSearchParams();
@@ -52,18 +52,17 @@ function postScan(studentId, scanType="in", manualStatus=null){
   formData.append("lng", lng);
 
   fetch(SCRIPT_URL, { method: "POST", body: formData })
-    .then(res=>res.json())
-    .then(data=>{
-      if(data.error) statusDiv.innerHTML = "❌ "+data.error;
-      else statusDiv.innerHTML = "✅ "+data.studentName + " - " + data.direction;
+    .then(res => res.json())
+    .then(data => {
+      if(data.error) statusDiv.innerHTML = "❌ " + data.error;
+      else statusDiv.innerHTML = "✅ " + data.studentName + " - " + data.direction;
     })
-    .catch(err=>{
+    .catch(err => {
       console.error(err);
       statusDiv.innerHTML = "❌ Error posting scan.";
     });
 }
 
-// Initialize QR Scanner
 window.addEventListener("DOMContentLoaded", function(){
   const html5QrcodeScanner = new Html5Qrcode("reader");
   html5QrcodeScanner.start(
@@ -73,12 +72,11 @@ window.addEventListener("DOMContentLoaded", function(){
       const studentId = decodedText.trim();
       postScan(studentId, "in");
     },
-    errorMessage => { /* ignore scan errors */ }
+    err => { /* ignore scan errors */ }
   );
 });
 
-// Manual override submit
-document.getElementById("submitManual").addEventListener("click", ()=>{
+document.getElementById("submitManual").addEventListener("click", () => {
   const studentId = document.getElementById("studentId").value.trim();
   const manualStatus = document.getElementById("manualStatus").value;
   if(!studentId || !manualStatus){ alert("Please enter ID and select status."); return; }
