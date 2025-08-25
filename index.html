@@ -2,8 +2,8 @@
 <html>
 <head>
   <title>RAPID-NET QR Scanner</title>
-  <!-- Use local or CDN library -->
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+  <!-- Old cached version of html5-qrcode -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     #header { background-color: #4CAF50; color: white; padding: 15px; text-align: center; font-size: 28px; font-weight: bold; }
@@ -89,7 +89,6 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = data.status;
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    // Restart scanner after 2 sec
     setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 2000);
   })
   .catch(err => {
@@ -101,7 +100,7 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
 let html5QrCode;
 
 function startScanner(){
-  html5QrCode = new Html5Qrcode("reader", false); // false disables verbose logging & overlays
+  html5QrCode = new Html5Qrcode("reader", false);
   html5QrCode.start(
     { facingMode: "environment" },
     { fps:10, qrbox:250, showTorchButton:false, showZoomButtons:false, aspectRatio:1.0 },
