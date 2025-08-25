@@ -3,23 +3,62 @@
 <head>
   <title>RAPID-NET QR Scanner</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; }
-    header { background: #28a745; color: #fff; padding: 20px; text-align: center; font-size: 2em; font-weight: bold; }
-    .container { padding: 15px; max-width: 500px; margin: auto; }
-    label { display: block; margin: 10px 0 5px; }
-    input[type=text] { width: 100%; padding: 8px; font-size: 1em; }
-    input[type=checkbox] { margin-right: 5px; }
-    button { margin-top: 10px; padding: 10px 15px; font-size: 1em; background:#28a745; color:#fff; border:none; cursor:pointer; border-radius:5px; }
-    button:disabled { background:#ccc; cursor:not-allowed; }
-    #reader { width: 100%; margin: 15px 0; border: 2px solid #28a745; border-radius: 10px; min-height: 250px; background:#000; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; font-size:0.9em; }
-    th { background:#28a745; color:#fff; }
-    #status { margin-top:10px; font-weight:bold; }
-
-    /* Color coding for scan rows */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      background-color: #f9f9f9;
+    }
+    header {
+      background-color: #2e7d32; /* Green line */
+      color: white;
+      padding: 20px;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .controls {
+      margin: 15px 0;
+      font-size: 18px;
+    }
+    #reader {
+      width: 300px;
+      margin: 0 auto 15px auto;
+    }
+    #manual-entry {
+      margin: 15px auto;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    #manual-entry input[type="text"] {
+      padding: 8px;
+      font-size: 16px;
+      width: 180px;
+    }
+    #manual-entry button {
+      padding: 8px 12px;
+      font-size: 16px;
+      background-color: #2e7d32;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #manual-entry button:disabled {
+      background-color: #aaa;
+      cursor: not-allowed;
+    }
+    table {
+      border-collapse: collapse;
+      width: 90%;
+      margin: 20px auto;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+    }
     .present { background-color: #c6efce; }
     .late { background-color: #ffeb9c; }
     .very-late { background-color: #f4cccc; }
@@ -28,131 +67,132 @@
   </style>
 </head>
 <body>
-  <header>RAPID-NET QR CODE SCANNER</header>
-  <div class="container">
-    <!-- IN/OUT selector -->
-    <label>
-      <input type="radio" name="scanType" value="in" checked> IN
-    </label>
-    <label>
-      <input type="radio" name="scanType" value="out"> OUT
-    </label>
 
-    <!-- QR scanner -->
-    <div id="reader"></div>
-    <p id="status">Waiting for scan...</p>
+<header>RAPID-NET QR SCANNER</header>
 
-    <!-- Manual / Testing Mode -->
-    <label><input type="checkbox" id="manualMode"> Manual / Testing Mode</label>
-    <input type="text" id="manualId" placeholder="Enter Student ID" disabled>
-    <button id="manualSubmit" disabled>Submit Manual Override</button>
+<div class="controls">
+  <label><input type="radio" name="scanType" value="in" checked> IN</label>
+  <label><input type="radio" name="scanType" value="out"> OUT</label>
+  &nbsp;&nbsp;
+  <label><input type="checkbox" id="manualMode"> Manual / Testing Mode</label>
+</div>
 
-    <!-- Live scan table -->
-    <table id="scan-log">
-      <thead>
-        <tr>
-          <th>Student ID</th>
-          <th>Student Name</th>
-          <th>Direction</th>
-          <th>Status</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<div id="reader"></div>
 
-  <script>
-    const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
+<div id="manual-entry">
+  <input type="text" id="manualId" placeholder="Enter Student ID" disabled>
+  <button id="manualBtn" disabled>Submit Manual Override</button>
+</div>
 
-    // Enable manual input if checkbox is checked
-    const manualCheckbox = document.getElementById('manualMode');
-    const manualInput = document.getElementById('manualId');
-    const manualButton = document.getElementById('manualSubmit');
+<p id="status">Waiting for scan...</p>
 
-    manualCheckbox.addEventListener('change', () => {
-      manualInput.disabled = !manualCheckbox.checked;
-      manualButton.disabled = !manualCheckbox.checked;
-    });
+<table id="scan-log">
+  <thead>
+    <tr>
+      <th>Student ID</th>
+      <th>Student Name</th>
+      <th>Direction</th>
+      <th>Status</th>
+      <th>Time</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
-    manualButton.addEventListener('click', () => {
-      const studentId = manualInput.value.trim();
-      if(studentId) sendScanData(studentId, true);
-    });
+<script>
+const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
 
-    function getScanType() {
-      return document.querySelector('input[name="scanType"]:checked').value;
+function getScanType() {
+  return document.querySelector('input[name="scanType"]:checked').value;
+}
+
+// Manual mode toggle
+const manualMode = document.getElementById("manualMode");
+const manualId = document.getElementById("manualId");
+const manualBtn = document.getElementById("manualBtn");
+
+manualMode.addEventListener("change", () => {
+  const checked = manualMode.checked;
+  manualId.disabled = !checked;
+  manualBtn.disabled = !checked;
+});
+
+function sendScanData(studentId, lat = "", lng = "", manual=false) {
+  const scanType = manual ? "manual" : getScanType();
+  const manualStatus = manual ? "Manual Override" : "";
+
+  fetch(scriptURL, {
+    method: 'POST',
+    body: new URLSearchParams({
+      studentId: studentId,
+      scanType: scanType,
+      manualStatus: manualStatus,
+      lat: lat,
+      lng: lng
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction})`;
+
+    const tbody = document.querySelector("#scan-log tbody");
+    const row = tbody.insertRow(0);
+    row.className = data.direction.toLowerCase().replace(" ", "-");
+    row.insertCell(0).innerText = data.studentId;
+    row.insertCell(1).innerText = data.studentName;
+    row.insertCell(2).innerText = data.direction.toUpperCase();
+    row.insertCell(3).innerText = data.status;
+    row.insertCell(4).innerText = new Date().toLocaleTimeString();
+
+    if(!manual){
+      setTimeout(() => {
+        document.getElementById("status").innerText = "Waiting for scan...";
+        startScanner();
+      }, 2000);
     }
+  })
+  .catch(error => {
+    document.getElementById("status").innerText = "❌ Error: " + error;
+    setTimeout(() => {
+      document.getElementById("status").innerText = "Waiting for scan...";
+      startScanner();
+    }, 3000);
+  });
+}
 
-    function sendScanData(studentId, isManual=false, lat="", lng="") {
-      const scanType = isManual ? "manual" : getScanType();
-      const manualStatus = isManual ? "Manual Override" : "";
+// Manual submit
+manualBtn.addEventListener("click", () => {
+  const id = manualId.value.trim();
+  if(id) {
+    sendScanData(id, "", "", true);
+    manualId.value = "";
+  }
+});
 
-      fetch(scriptURL, {
-        method: 'POST',
-        body: new URLSearchParams({
-          studentId: studentId,
-          scanType: scanType,
-          manualStatus: manualStatus,
-          lat: lat,
-          lng: lng
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction})`;
-
-        // Update live table
-        const tbody = document.querySelector("#scan-log tbody");
-        const row = tbody.insertRow(0);
-
-        // Apply color class based on status
-        const statusClass = (data.direction || "").replace(/\s+/g, '-').toLowerCase();
-        row.className = statusClass;
-
-        row.insertCell(0).innerText = data.studentId;
-        row.insertCell(1).innerText = data.studentName;
-        row.insertCell(2).innerText = data.direction.toUpperCase();
-        row.insertCell(3).innerText = data.status || "";
-        row.insertCell(4).innerText = new Date().toLocaleTimeString();
-
-        // Reset manual input
-        if(isManual) manualInput.value = "";
-
-        // Restart scanner if not manual
-        if(!isManual) setTimeout(startScanner, 2000);
-      })
-      .catch(error => {
-        document.getElementById("status").innerText = "❌ Error: " + error;
-        if(!isManual) setTimeout(startScanner, 3000);
+let html5QrCode;
+function startScanner() {
+  if(html5QrCode) html5QrCode.stop().catch(()=>{});
+  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    qrCodeMessage => {
+      html5QrCode.stop();
+      navigator.geolocation.getCurrentPosition(pos => {
+        sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude);
+      }, () => {
+        sendScanData(qrCodeMessage);
       });
-    }
+    },
+    errorMessage => {}
+  ).catch(err => {
+    document.getElementById("status").innerText = "❌ Cannot start camera: " + err;
+  });
+}
 
-    let html5QrCode;
+// Start scanner automatically
+startScanner();
+</script>
 
-    function startScanner() {
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        qrCodeMessage => {
-          html5QrCode.stop().then(() => {
-            navigator.geolocation.getCurrentPosition(function(position) {
-              sendScanData(qrCodeMessage, false, position.coords.latitude, position.coords.longitude);
-            }, function() {
-              sendScanData(qrCodeMessage);
-            });
-          });
-        },
-        errorMessage => {
-          // console.log(`QR Scan error: ${errorMessage}`);
-        }
-      ).catch(err => {
-        document.getElementById("status").innerText = "❌ Scanner initialization failed: " + err;
-      });
-    }
-
-    startScanner();
-  </script>
 </body>
 </html>
