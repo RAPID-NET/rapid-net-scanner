@@ -44,7 +44,34 @@
   <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdIz9DEsXWdXQWZ5xx6xL3cE8BNlBRkIDUUiz4a-HwJdGy_DO3TigTAhS7GinBbYpO/exec";
 
-    // Initialize HTML5 QR Code scanner
+    // Initialize HTML5 QR Code scanner with fallback
+    function startScanner() {
+      const html5QrcodeScanner = new Html5Qrcode("reader");
+
+      // Try environment (back camera), fallback to user (front camera)
+      const configList = [{ facingMode: "environment" }, { facingMode: "user" }];
+
+      let started = false;
+      const tryStart = (index) => {
+        if (index >= configList.length) {
+          document.getElementById("status").textContent = "❌ No camera found or access denied";
+          document.getElementById("status").className = "error";
+          return;
+        }
+        html5QrcodeScanner.start(
+          configList[index],
+          { fps: 10, qrbox: 250 },
+          onScanSuccess,
+          onScanError
+        ).then(() => {
+          started = true;
+        }).catch(err => {
+          tryStart(index + 1); // fallback to next camera config
+        });
+      };
+      tryStart(0);
+    }
+
     function onScanSuccess(decodedText, decodedResult) {
       const studentId = decodedText.trim();
       submitScan(studentId, "in");
@@ -54,13 +81,7 @@
       console.warn("Scan error:", errorMessage);
     }
 
-    const html5QrcodeScanner = new Html5Qrcode("reader");
-    html5QrcodeScanner.start(
-      { facingMode: "environment" }, // use back camera for mobile
-      { fps: 10, qrbox: 250 },
-      onScanSuccess,
-      onScanError
-    );
+    startScanner(); // start scanner on page load
 
     function submitScan(studentId, scanType) {
       const statusDiv = document.getElementById("status");
