@@ -4,32 +4,40 @@
   <meta charset="UTF-8">
   <title>RAPID-NET QR Scanner</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #reader { width: 500px; margin-bottom: 20px; }
-    #status { margin-top: 20px; font-size: 1.2em; font-weight: bold; }
-    #manualForm { margin-top: 20px; border: 1px solid #ccc; padding: 15px; width: 300px; }
-    .success { color: green; }
-    .error { color: red; }
+    body { font-family: Arial, sans-serif; margin: 10px; padding:0; }
+    h2, h3 { text-align: center; }
+    #reader { width: 100%; max-width: 500px; height: 400px; margin: 10px auto; border: 2px solid #ccc; border-radius: 10px; }
+    #status { margin-top: 10px; font-size: 1.2em; font-weight: bold; text-align: center; }
+    #manualForm { margin: 20px auto; border: 1px solid #ccc; padding: 15px; width: 95%; max-width: 350px; border-radius: 10px; background: #f9f9f9; }
+    #manualForm input, #manualForm select, #manualForm button { width: 100%; padding: 8px; margin-top: 5px; }
+    .success { color: green; text-align: center; }
+    .error { color: red; text-align: center; }
   </style>
 </head>
 <body>
   <h2>RAPID-NET QR Scanner</h2>
+
+  <!-- QR Scanner -->
   <div id="reader"></div>
   <div id="status"></div>
 
+  <!-- Manual Override Form -->
   <h3>Manual Override (Optional)</h3>
   <div id="manualForm">
-    <label>Student ID:</label><br>
-    <input type="text" id="manualId" placeholder="Enter Student ID"><br><br>
-    <label>Status:</label><br>
+    <label>Student ID:</label>
+    <input type="text" id="manualId" placeholder="Enter Student ID">
+    
+    <label>Status:</label>
     <select id="manualStatus">
       <option value="Present">Present</option>
       <option value="Late">Late</option>
       <option value="Very Late">Very Late</option>
       <option value="Going Home">Going Home</option>
       <option value="Absent">Absent</option>
-    </select><br><br>
+    </select>
+    
     <button onclick="submitManual()">Submit Manual Override</button>
   </div>
 
@@ -48,7 +56,7 @@
 
     const html5QrcodeScanner = new Html5Qrcode("reader");
     html5QrcodeScanner.start(
-      { facingMode: "environment" },
+      { facingMode: "environment" }, // use back camera for mobile
       { fps: 10, qrbox: 250 },
       onScanSuccess,
       onScanError
@@ -62,7 +70,7 @@
       })
       .then(response => response.json())
       .then(data => {
-        if(data.error) {
+        if(data.error){
           statusDiv.textContent = data.error;
           statusDiv.className = "error";
         } else {
@@ -89,7 +97,7 @@
       })
       .then(response => response.json())
       .then(data => {
-        if(data.error) {
+        if(data.error){
           statusDiv.textContent = data.error;
           statusDiv.className = "error";
         } else {
