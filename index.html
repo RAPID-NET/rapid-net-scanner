@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>RAPID-NET QR Scanner</title>
@@ -8,40 +8,90 @@
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
-      background: #f8f8f8;
+      background-color: #f5f5f5;
     }
-    h2 { margin-bottom: 10px; }
+    h1 {
+      color: #0b6623;
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
     #reader {
       width: 100%;
       max-width: 400px;
-      margin: 10px auto;
-      border: 2px solid #000;
-      background: #000;
+      margin: 0 auto;
+      border: 2px solid #0b6623;
+      border-radius: 10px;
+      background-color: #000;
+    }
+    #status {
+      text-align: center;
+      font-size: 1.2em;
+      margin: 10px 0;
+      color: #333;
     }
     table {
       border-collapse: collapse;
       width: 100%;
       margin-top: 15px;
+      font-size: 0.95em;
     }
-    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+    }
+    th {
+      background-color: #0b6623;
+      color: #fff;
+    }
     .present { background-color: #c6efce; }
     .late { background-color: #ffeb9c; }
-    .very-late { background-color: #f4cccc; }
-    .going-home { background-color: #9fc5e8; }
+    .very\ late { background-color: #f4cccc; }
+    .going\ home { background-color: #9fc5e8; }
     .absent { background-color: #ffc7ce; }
-    button { margin: 10px 0; padding: 10px 15px; font-size: 16px; cursor: pointer; }
+    #manualOverride {
+      margin: 15px auto;
+      max-width: 400px;
+      padding: 10px;
+      border: 2px solid #0b6623;
+      border-radius: 10px;
+      background-color: #fff;
+    }
+    #manualOverride input, #manualOverride button {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      font-size: 1em;
+    }
+    #manualOverride button {
+      background-color: #0b6623;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h2>RAPID-NET QR Scanner</h2>
+  <h1>RAPID-NET QR Scanner</h1>
 
   <!-- IN/OUT selector -->
-  <label><input type="radio" name="scanType" value="in" checked> IN</label>
-  <label><input type="radio" name="scanType" value="out"> OUT</label>
+  <div style="text-align:center;">
+    <label><input type="radio" name="scanType" value="in" checked> IN</label>
+    <label><input type="radio" name="scanType" value="out"> OUT</label>
+  </div>
 
+  <!-- QR Scanner -->
   <div id="reader"></div>
-  <button onclick="startScanner()">Start Scanner</button>
   <p id="status">Waiting for scan...</p>
+
+  <!-- Manual Override -->
+  <div id="manualOverride">
+    <h3>Manual Override (Optional)</h3>
+    <input type="text" id="manualStudentId" placeholder="Enter Student ID">
+    <input type="text" id="manualStatus" placeholder="Enter Status (Present/Late/etc)">
+    <button onclick="submitManual()">Submit Manual Override</button>
+  </div>
 
   <!-- Live table -->
   <table id="scan-log">
@@ -60,28 +110,36 @@
   <script>
     const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
 
-    let html5QrCode;
-
     function getScanType() {
       return document.querySelector('input[name="scanType"]:checked').value;
     }
 
-    function sendScanData(studentId, lat = "", lng = "") {
-      const scanType = getScanType();
+    function sendScanData(studentId, status=null, lat="", lng="") {
+      const scanType = status ? "manual" : getScanType();
+
       fetch(scriptURL, {
         method: 'POST',
         body: new URLSearchParams({
           studentId: studentId,
           scanType: scanType,
+          manualStatus: status || "",
           lat: lat,
           lng: lng
         })
       })
       .then(response => response.json())
       .then(data => {
+        if(data.error) {
+          document.getElementById("status").innerText = "❌ " + data.error;
+          setTimeout(() => {
+            document.getElementById("status").innerText = "Waiting for scan...";
+            startScanner();
+          }, 3000);
+          return;
+        }
+
         document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction})`;
 
-        // Update live table
         const tbody = document.querySelector("#scan-log tbody");
         const row = tbody.insertRow(0);
         row.className = data.direction.toLowerCase().replace(" ", "-");
@@ -91,7 +149,6 @@
         row.insertCell(3).innerText = data.direction;
         row.insertCell(4).innerText = new Date().toLocaleTimeString();
 
-        // Restart scanner after 2 seconds
         setTimeout(() => {
           document.getElementById("status").innerText = "Waiting for scan...";
           startScanner();
@@ -106,30 +163,44 @@
       });
     }
 
-    function startScanner() {
-      if (html5QrCode) html5QrCode.stop().catch(()=>{});
-      html5QrCode = new Html5Qrcode("reader");
+    function submitManual() {
+      const studentId = document.getElementById("manualStudentId").value.trim();
+      const status = document.getElementById("manualStatus").value.trim();
+      if(!studentId || !status) {
+        alert("Please enter both Student ID and Status.");
+        return;
+      }
+      sendScanData(studentId, status);
+      document.getElementById("manualStudentId").value = "";
+      document.getElementById("manualStatus").value = "";
+    }
 
+    let html5QrCode;
+
+    function startScanner() {
+      html5QrCode = new Html5Qrcode("reader");
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
         qrCodeMessage => {
-          html5QrCode.stop();
-          navigator.geolocation.getCurrentPosition(position => {
-            sendScanData(qrCodeMessage, position.coords.latitude, position.coords.longitude);
-          }, () => {
-            sendScanData(qrCodeMessage);
+          html5QrCode.stop().then(() => {
+            if(navigator.geolocation){
+              navigator.geolocation.getCurrentPosition(pos => {
+                sendScanData(qrCodeMessage, null, pos.coords.latitude, pos.coords.longitude);
+              }, () => {
+                sendScanData(qrCodeMessage);
+              });
+            } else {
+              sendScanData(qrCodeMessage);
+            }
           });
         },
-        errorMessage => {
-          // console.log(`QR Scan error: ${errorMessage}`);
-        }
+        errorMessage => { /* ignore minor errors */ }
       ).catch(err => {
-        document.getElementById("status").innerText = "❌ Camera access denied or not available";
+        document.getElementById("status").innerText = "❌ Camera error: " + err;
       });
     }
 
-    // Automatically start scanner on page load
     startScanner();
   </script>
 </body>
