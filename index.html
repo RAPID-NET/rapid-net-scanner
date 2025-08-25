@@ -97,9 +97,11 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
 }
 
 let html5QrCode;
+let scannerRunning = false;
 
-function startScanner(){
-  html5QrCode = new Html5Qrcode("reader", false);
+function startScanner() {
+  if (scannerRunning) return;
+  scannerRunning = true;
 
   Html5Qrcode.getCameras().then(cameras => {
     if(cameras && cameras.length){
@@ -111,38 +113,39 @@ function startScanner(){
         }
       }
 
+      html5QrCode = new Html5Qrcode("reader");
       html5QrCode.start(
         { deviceId: { exact: cameraId } },
-        { fps:10, qrbox:250, showTorchButton:false, showZoomButtons:false },
+        { fps: 10, qrbox: 250 },
         qrCodeMessage => {
+          html5QrCode.stop().finally(() => { scannerRunning = false; });
+
           const isTestingMode = document.getElementById("manualMode").checked;
+          if(isTestingMode){
+            sendScanData(qrCodeMessage, "", "", true);
+          } else {
+            navigator.geolocation.getCurrentPosition(pos=>{
+              sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude, false);
+            }, ()=>{
+              sendScanData(qrCodeMessage, "", "", false);
+            });
+          }
 
-          // Stop scanner before restarting to avoid errors
-          html5QrCode.stop().then(() => {
-            // If testing mode, ignore geolocation
-            if(isTestingMode){
-              sendScanData(qrCodeMessage, "", "", true);
-            } else {
-              navigator.geolocation.getCurrentPosition(pos=>{
-                sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-              }, ()=>{
-                // If geolocation fails, still send data
-                sendScanData(qrCodeMessage,"","",false);
-              });
-            }
-
-            // Restart scanner safely after short delay
-            setTimeout(() => startScanner(), 500);
-          }).catch(err => {
-            document.getElementById("status").innerText = "❌ Scanner stop failed: " + err;
-            setTimeout(() => startScanner(), 1000);
-          });
+          setTimeout(() => startScanner(), 500);
         },
-        errorMessage => { /* optional: handle scan errors */ }
-      );
+        errorMessage => { /* optional */ }
+      ).catch(err => {
+        document.getElementById("status").innerText = "❌ Scanner failed to start: " + err;
+        scannerRunning = false;
+      });
+
+    } else {
+      document.getElementById("status").innerText = "❌ No camera found";
+      scannerRunning = false;
     }
   }).catch(err => {
-    document.getElementById("status").innerText = "❌ Camera not found: " + err;
+    document.getElementById("status").innerText = "❌ Camera access error: " + err;
+    scannerRunning = false;
   });
 }
 
