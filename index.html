@@ -62,14 +62,13 @@ function getScanType() {
 }
 
 function sendScanData(studentId, lat="", lng="", manualOverride=false){
-  const scanType = getScanType();
+  const scanType = manualOverride ? "manual" : getScanType();
   const payload = {
     studentId: studentId,
-    scanType: manualOverride ? "manual" : scanType,
+    scanType: scanType,
     lat: lat,
     lng: lng,
-    manualStatus: manualOverride ? "Manual Override" : "",
-    manualOverride: manualOverride.toString()
+    manualStatus: manualOverride ? "Manual Override" : ""
   };
 
   fetch(scriptURL, {
@@ -92,12 +91,12 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = "Scanned";
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    setTimeout(()=>{ document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 1000);
+    startScanner(); // instant restart
   })
   .catch(err => {
     scanning = false;
-    document.getElementById("status").innerText = "❌ Error: "+err;
-    setTimeout(()=>{ document.getElementById("status").innerText="Waiting for scan..."; startScanner(); },1500);
+    document.getElementById("status").innerText = "❌ Error sending data, will retry...";
+    setTimeout(()=>startScanner(), 1500); // retry without breaking
   });
 }
 
@@ -113,15 +112,22 @@ function startScanner(){
       scanning = true;
       html5QrCode.stop().finally(()=>{
         const isManual = document.getElementById("manualMode").checked;
-        navigator.geolocation.getCurrentPosition(pos=>{
-          sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,isManual);
-        }, ()=>{
-          sendScanData(qrCodeMessage,"","",isManual);
-        });
+        if(isManual){
+          sendScanData(qrCodeMessage,"","",true);
+        } else {
+          navigator.geolocation.getCurrentPosition(pos=>{
+            sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+          }, ()=>{
+            sendScanData(qrCodeMessage,"","",false);
+          });
+        }
       });
     },
     errorMessage => { /* optional: console.log(errorMessage); */ }
-  );
+  ).catch(err=>{
+    console.log("Scanner failed to start, retrying...", err);
+    setTimeout(()=>startScanner(), 2000);
+  });
 }
 
 startScanner();
@@ -134,11 +140,15 @@ manualBtn.addEventListener("click", ()=>{
   const id = manualId.value.trim();
   if(id){
     const isManualOverride = manualMode.checked;
-    navigator.geolocation.getCurrentPosition(pos=>{
-      sendScanData(id,pos.coords.latitude,pos.coords.longitude,isManualOverride);
-    }, ()=>{
-      sendScanData(id,"","",isManualOverride);
-    });
+    if(isManualOverride){
+      sendScanData(id,"","",true);
+    } else {
+      navigator.geolocation.getCurrentPosition(pos=>{
+        sendScanData(id,pos.coords.latitude,pos.coords.longitude,false);
+      }, ()=>{
+        sendScanData(id,"","",false);
+      });
+    }
     manualId.value="";
   }
 });
