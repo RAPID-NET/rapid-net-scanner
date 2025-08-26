@@ -88,30 +88,26 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = data.status;
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    // Restart scanner immediately
+    // Resume scanner immediately
     document.getElementById("status").innerText = "Waiting for scan...";
-    startScanner();
+    html5QrCode.resume(); // do not create a new instance
   })
   .catch(err => {
     document.getElementById("status").innerText = "❌ Error: "+err;
     document.getElementById("status").innerText = "Waiting for scan...";
-    startScanner();
+    html5QrCode.resume();
   });
 }
 
-let html5QrCode;
+// Create a single scanner instance
+let html5QrCode = new Html5Qrcode("reader");
 
 function startScanner(){
-  // If a previous scanner exists, stop it first
-  if(html5QrCode){
-    html5QrCode.stop().catch(()=>{}); // ignore errors if already stopped
-  }
-
-  html5QrCode = new Html5Qrcode("reader");
   html5QrCode.start(
     { facingMode: "environment" },
-    { fps:10, qrbox:250 },
+    { fps: 10, qrbox: 250 },
     qrCodeMessage => {
+      html5QrCode.pause(); // pause scanning temporarily
       const isTestingMode = document.getElementById("manualMode").checked;
 
       if(isTestingMode){
@@ -124,8 +120,10 @@ function startScanner(){
         });
       }
     },
-    errorMessage => { /* console.log(errorMessage); */ }
-  );
+    errorMessage => { /* ignore scan errors */ }
+  ).catch(err=>{
+    console.log("Scanner failed to start:", err);
+  });
 }
 
 startScanner();
