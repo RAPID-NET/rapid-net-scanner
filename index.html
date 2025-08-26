@@ -52,9 +52,10 @@
 </table>
 
 <script>
-const scriptURL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"; // replace with your Apps Script URL
+const scriptURL = "https://script.google.com/macros/s/AKfycbw9oiK83vPgUzkEzNUN1MUgAOFJIqM374AX8gFx4M70-M6lz7MHZUKsXVYAfpnVJv0Y/exec";
+
 let html5QrCode;
-let scanning = false; // prevent multiple scans
+let scanning = false;
 
 function getScanType() {
   return document.querySelector('input[name="scanType"]:checked').value;
@@ -77,7 +78,7 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
   })
   .then(resp => resp.json())
   .then(data => {
-    scanning = false; // allow next scan
+    scanning = false;
     if(data.error){
       document.getElementById("status").innerText = data.error;
     } else {
@@ -108,7 +109,7 @@ function startScanner(){
     { facingMode: "environment" },
     { fps:10, qrbox:250 },
     qrCodeMessage => {
-      if(scanning) return; // ignore if already scanning
+      if(scanning) return;
       scanning = true;
       html5QrCode.stop().finally(()=>{
         const isManual = document.getElementById("manualMode").checked;
