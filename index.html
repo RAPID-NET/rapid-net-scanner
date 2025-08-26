@@ -52,7 +52,9 @@
 </table>
 
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbxm4nw8lyixQW83-WJ3_ClopMAFmPL5gIn0QRrgVxovpZvGn8RjFWNKRRtwWS_KC2UO/exec";
+const scriptURL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"; // replace with your Apps Script URL
+let html5QrCode;
+let scanning = false; // prevent multiple scans
 
 function getScanType() {
   return document.querySelector('input[name="scanType"]:checked').value;
@@ -65,7 +67,8 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     scanType: manualOverride ? "manual" : scanType,
     lat: lat,
     lng: lng,
-    manualStatus: manualOverride ? "Manual Override" : ""
+    manualStatus: manualOverride ? "Manual Override" : "",
+    manualOverride: manualOverride.toString()
   };
 
   fetch(scriptURL, {
@@ -74,82 +77,69 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
   })
   .then(resp => resp.json())
   .then(data => {
+    scanning = false; // allow next scan
     if(data.error){
       document.getElementById("status").innerText = data.error;
     } else {
       document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
-
       const tbody = document.querySelector("#scan-log tbody");
       const row = tbody.insertRow(0);
       row.className = data.direction.toLowerCase();
       row.insertCell(0).innerText = data.studentId;
       row.insertCell(1).innerText = data.studentName;
       row.insertCell(2).innerText = data.direction.toUpperCase();
-      row.insertCell(3).innerText = data.status;
+      row.insertCell(3).innerText = "Scanned";
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    // Resume scanner immediately
-    document.getElementById("status").innerText = "Waiting for scan...";
-    html5QrCode.resume(); // do not create a new instance
+    setTimeout(()=>{ document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 1000);
   })
   .catch(err => {
+    scanning = false;
     document.getElementById("status").innerText = "❌ Error: "+err;
-    document.getElementById("status").innerText = "Waiting for scan...";
-    html5QrCode.resume();
+    setTimeout(()=>{ document.getElementById("status").innerText="Waiting for scan..."; startScanner(); },1500);
   });
 }
 
-// Create a single scanner instance
-let html5QrCode = new Html5Qrcode("reader");
-
 function startScanner(){
+  if(html5QrCode) html5QrCode.stop().catch(()=>{});
+  html5QrCode = new Html5Qrcode("reader");
+
   html5QrCode.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
+    { fps:10, qrbox:250 },
     qrCodeMessage => {
-      html5QrCode.pause(); // pause scanning temporarily
-      const isTestingMode = document.getElementById("manualMode").checked;
-
-      if(isTestingMode){
-        sendScanData(qrCodeMessage,"","",true);
-      } else {
+      if(scanning) return; // ignore if already scanning
+      scanning = true;
+      html5QrCode.stop().finally(()=>{
+        const isManual = document.getElementById("manualMode").checked;
         navigator.geolocation.getCurrentPosition(pos=>{
-          sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+          sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,isManual);
         }, ()=>{
-          sendScanData(qrCodeMessage,"","",false);
+          sendScanData(qrCodeMessage,"","",isManual);
         });
-      }
+      });
     },
-    errorMessage => { /* ignore scan errors */ }
-  ).catch(err=>{
-    console.log("Scanner failed to start:", err);
-  });
+    errorMessage => { /* optional: console.log(errorMessage); */ }
+  );
 }
 
 startScanner();
 
-// Manual / Testing Mode override
 const manualBtn = document.getElementById("manualBtn");
 const manualId = document.getElementById("manualId");
 const manualMode = document.getElementById("manualMode");
 
 manualBtn.addEventListener("click", ()=>{
   const id = manualId.value.trim();
-  if(!id) return;
-
-  const isManualOverride = manualMode.checked;
-
-  if(isManualOverride){
-    sendScanData(id,"","",true);
-  } else {
+  if(id){
+    const isManualOverride = manualMode.checked;
     navigator.geolocation.getCurrentPosition(pos=>{
-      sendScanData(id,pos.coords.latitude,pos.coords.longitude,false);
+      sendScanData(id,pos.coords.latitude,pos.coords.longitude,isManualOverride);
     }, ()=>{
-      sendScanData(id,"","",false);
+      sendScanData(id,"","",isManualOverride);
     });
+    manualId.value="";
   }
-
-  manualId.value="";
 });
 </script>
 
