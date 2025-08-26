@@ -88,29 +88,41 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = data.status;
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    // Restart scanner after 2 sec
-    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 2000);
+    // Restart scanner immediately
+    document.getElementById("status").innerText = "Waiting for scan...";
+    startScanner();
   })
   .catch(err => {
     document.getElementById("status").innerText = "❌ Error: "+err;
-    setTimeout(()=>{ document.getElementById("status").innerText="Waiting for scan..."; startScanner(); },3000);
+    document.getElementById("status").innerText = "Waiting for scan...";
+    startScanner();
   });
 }
 
 let html5QrCode;
 
 function startScanner(){
+  // If a previous scanner exists, stop it first
+  if(html5QrCode){
+    html5QrCode.stop().catch(()=>{}); // ignore errors if already stopped
+  }
+
   html5QrCode = new Html5Qrcode("reader");
   html5QrCode.start(
     { facingMode: "environment" },
     { fps:10, qrbox:250 },
     qrCodeMessage => {
-      html5QrCode.stop();
-      navigator.geolocation.getCurrentPosition(pos=>{
-        sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-      }, ()=>{
-        sendScanData(qrCodeMessage,"","",false);
-      });
+      const isTestingMode = document.getElementById("manualMode").checked;
+
+      if(isTestingMode){
+        sendScanData(qrCodeMessage,"","",true);
+      } else {
+        navigator.geolocation.getCurrentPosition(pos=>{
+          sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+        }, ()=>{
+          sendScanData(qrCodeMessage,"","",false);
+        });
+      }
     },
     errorMessage => { /* console.log(errorMessage); */ }
   );
@@ -118,31 +130,30 @@ function startScanner(){
 
 startScanner();
 
+// Manual / Testing Mode override
 const manualBtn = document.getElementById("manualBtn");
 const manualId = document.getElementById("manualId");
 const manualMode = document.getElementById("manualMode");
 
 manualBtn.addEventListener("click", ()=>{
   const id = manualId.value.trim();
-  if(id){
-    const isManualOverride = manualMode.checked;
-    const isTestingMode = document.getElementById("manualMode").checked;
+  if(!id) return;
 
-if(isTestingMode){
-  // Bypass geolocation; allow scanning anywhere
-  sendScanData(qrCodeMessage,"","",true);
-} else {
-  navigator.geolocation.getCurrentPosition(pos=>{
-    sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-  }, ()=>{
-    sendScanData(qrCodeMessage,"","",false);
-  });
-}
-    manualId.value="";
+  const isManualOverride = manualMode.checked;
+
+  if(isManualOverride){
+    sendScanData(id,"","",true);
+  } else {
+    navigator.geolocation.getCurrentPosition(pos=>{
+      sendScanData(id,pos.coords.latitude,pos.coords.longitude,false);
+    }, ()=>{
+      sendScanData(id,"","",false);
+    });
   }
+
+  manualId.value="";
 });
 </script>
 
 </body>
 </html>
-
