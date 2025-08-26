@@ -126,11 +126,18 @@ manualBtn.addEventListener("click", ()=>{
   const id = manualId.value.trim();
   if(id){
     const isManualOverride = manualMode.checked;
-    navigator.geolocation.getCurrentPosition(pos=>{
-      sendScanData(id,pos.coords.latitude,pos.coords.longitude,isManualOverride);
-    }, ()=>{
-      sendScanData(id,"","",isManualOverride);
-    });
+    const isTestingMode = document.getElementById("manualMode").checked;
+
+if(isTestingMode){
+  // Bypass geolocation; allow scanning anywhere
+  sendScanData(qrCodeMessage,"","",true);
+} else {
+  navigator.geolocation.getCurrentPosition(pos=>{
+    sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+  }, ()=>{
+    sendScanData(qrCodeMessage,"","",false);
+  });
+}
     manualId.value="";
   }
 });
@@ -138,3 +145,4 @@ manualBtn.addEventListener("click", ()=>{
 
 </body>
 </html>
+
