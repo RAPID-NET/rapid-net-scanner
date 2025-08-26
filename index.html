@@ -52,20 +52,17 @@
 </table>
 
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbw9oiK83vPgUzkEzNUN1MUgAOFJIqM374AX8gFx4M70-M6lz7MHZUKsXVYAfpnVJv0Y/exec";
-
-let html5QrCode;
-let scanning = false;
+const scriptURL = "https://script.google.com/macros/s/AKfycbxuO4_F2yX9oggdAe21XKMNpghSWidaEqlfHpWPmH_0fYOUea5KLcwMyiKV2TdJaLaD/exec";
 
 function getScanType() {
   return document.querySelector('input[name="scanType"]:checked').value;
 }
 
 function sendScanData(studentId, lat="", lng="", manualOverride=false){
-  const scanType = manualOverride ? "manual" : getScanType();
+  const scanType = getScanType();
   const payload = {
     studentId: studentId,
-    scanType: scanType,
+    scanType: manualOverride ? "manual" : scanType,
     lat: lat,
     lng: lng,
     manualStatus: manualOverride ? "Manual Override" : ""
@@ -77,11 +74,11 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
   })
   .then(resp => resp.json())
   .then(data => {
-    scanning = false;
     if(data.error){
       document.getElementById("status").innerText = data.error;
     } else {
       document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
+
       const tbody = document.querySelector("#scan-log tbody");
       const row = tbody.insertRow(0);
       row.className = data.direction.toLowerCase();
@@ -91,42 +88,44 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = "Scanned";
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
-    startScanner(); // instant restart
+    // Restart scanner after short delay
+    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 500);
   })
   .catch(err => {
-    scanning = false;
-    document.getElementById("status").innerText = "❌ Error sending data, will retry...";
-    setTimeout(()=>startScanner(), 1500); // retry without breaking
+    console.log("Warning: fetch error, data may have been sent.", err);
+    document.getElementById("status").innerText = "⚠️ Data may have sent, restarting scanner...";
+    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 1000);
   });
 }
 
-function startScanner(){
-  if(html5QrCode) html5QrCode.stop().catch(()=>{});
-  html5QrCode = new Html5Qrcode("reader");
+let html5QrCode;
+let scanning = false;
 
+function startScanner(){
+  if(scanning) return;
+  scanning = true;
+  html5QrCode = new Html5Qrcode("reader");
   html5QrCode.start(
     { facingMode: "environment" },
     { fps:10, qrbox:250 },
     qrCodeMessage => {
-      if(scanning) return;
-      scanning = true;
-      html5QrCode.stop().finally(()=>{
-        const isManual = document.getElementById("manualMode").checked;
-        if(isManual){
-          sendScanData(qrCodeMessage,"","",true);
-        } else {
-          navigator.geolocation.getCurrentPosition(pos=>{
-            sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
-          }, ()=>{
-            sendScanData(qrCodeMessage,"","",false);
-          });
-        }
-      });
+      html5QrCode.stop().then(()=>{ scanning=false; });
+      const manualMode = document.getElementById("manualMode").checked;
+      if(manualMode){
+        sendScanData(qrCodeMessage,"","",true);
+      } else {
+        navigator.geolocation.getCurrentPosition(pos=>{
+          sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+        }, ()=>{
+          sendScanData(qrCodeMessage,"","",false);
+        });
+      }
     },
-    errorMessage => { /* optional: console.log(errorMessage); */ }
+    errorMessage => { /* ignore scan errors */ }
   ).catch(err=>{
-    console.log("Scanner failed to start, retrying...", err);
-    setTimeout(()=>startScanner(), 2000);
+    scanning=false;
+    console.log("Scanner failed to start:", err);
+    setTimeout(startScanner, 1000);
   });
 }
 
