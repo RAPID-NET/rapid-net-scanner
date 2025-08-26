@@ -7,7 +7,7 @@
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     #header { background-color: #4CAF50; color: white; padding: 15px; text-align: center; font-size: 28px; font-weight: bold; }
     #controls { padding: 15px; text-align: center; }
-    #reader { width: 300px; margin: 10px auto; border: none; }
+    #reader { width: 300px; margin: 10px auto; }
     #manual-entry { margin-top: 10px; text-align: center; }
     #manual-entry input { padding: 5px; width: 150px; font-size: 16px; }
     #manual-entry button { padding: 6px 12px; font-size: 16px; margin-left: 5px; }
@@ -68,8 +68,6 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     manualStatus: manualOverride ? "Manual Override" : ""
   };
 
-  console.log("Sending payload:", payload);
-
   fetch(scriptURL, {
     method: 'POST',
     body: new URLSearchParams(payload)
@@ -90,63 +88,32 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
       row.insertCell(3).innerText = data.status;
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
+    // Restart scanner after 2 sec
+    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 2000);
   })
   .catch(err => {
     document.getElementById("status").innerText = "❌ Error: "+err;
+    setTimeout(()=>{ document.getElementById("status").innerText="Waiting for scan..."; startScanner(); },3000);
   });
 }
 
 let html5QrCode;
-let scannerRunning = false;
 
-function startScanner() {
-  if (scannerRunning) return;
-  scannerRunning = true;
-
-  Html5Qrcode.getCameras().then(cameras => {
-    if(cameras && cameras.length){
-      let cameraId = cameras[0].id;
-      for(let cam of cameras){
-        if(cam.label.toLowerCase().includes("back") || cam.label.toLowerCase().includes("rear")){
-          cameraId = cam.id;
-          break;
-        }
-      }
-
-      html5QrCode = new Html5Qrcode("reader");
-      html5QrCode.start(
-        { deviceId: { exact: cameraId } },
-        { fps: 10, qrbox: 250 },
-        qrCodeMessage => {
-          html5QrCode.stop().finally(() => { scannerRunning = false; });
-
-          const isTestingMode = document.getElementById("manualMode").checked;
-          if(isTestingMode){
-            sendScanData(qrCodeMessage, "", "", true);
-          } else {
-            navigator.geolocation.getCurrentPosition(pos=>{
-              sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude, false);
-            }, ()=>{
-              sendScanData(qrCodeMessage, "", "", false);
-            });
-          }
-
-          setTimeout(() => startScanner(), 500);
-        },
-        errorMessage => { /* optional */ }
-      ).catch(err => {
-        document.getElementById("status").innerText = "❌ Scanner failed to start: " + err;
-        scannerRunning = false;
+function startScanner(){
+  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps:10, qrbox:250 },
+    qrCodeMessage => {
+      html5QrCode.stop();
+      navigator.geolocation.getCurrentPosition(pos=>{
+        sendScanData(qrCodeMessage,pos.coords.latitude,pos.coords.longitude,false);
+      }, ()=>{
+        sendScanData(qrCodeMessage,"","",false);
       });
-
-    } else {
-      document.getElementById("status").innerText = "❌ No camera found";
-      scannerRunning = false;
-    }
-  }).catch(err => {
-    document.getElementById("status").innerText = "❌ Camera access error: " + err;
-    scannerRunning = false;
-  });
+    },
+    errorMessage => { /* console.log(errorMessage); */ }
+  );
 }
 
 startScanner();
@@ -159,15 +126,11 @@ manualBtn.addEventListener("click", ()=>{
   const id = manualId.value.trim();
   if(id){
     const isManualOverride = manualMode.checked;
-    if(isManualOverride){
-      sendScanData(id,"","",true);
-    } else {
-      navigator.geolocation.getCurrentPosition(pos=>{
-        sendScanData(id,pos.coords.latitude,pos.coords.longitude,false);
-      }, ()=>{
-        sendScanData(id,"","",false);
-      });
-    }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      sendScanData(id,pos.coords.latitude,pos.coords.longitude,isManualOverride);
+    }, ()=>{
+      sendScanData(id,"","",isManualOverride);
+    });
     manualId.value="";
   }
 });
