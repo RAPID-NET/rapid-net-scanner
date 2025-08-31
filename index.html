@@ -51,26 +51,10 @@
 </table>
 
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbxuO4_F2yX9oggdAe21XKMNpghSWidaEqlfHpWPmH_0fYOUea5KLcwMyiKV2TdJaLaD/exec"; // replace with your Apps Script doPost URL
+const scriptURL = "https://script.google.com/macros/s/AKfycby0YjGNQRKld1wW6WterM6g23LJzJEq7oDeHFkmxlpGyeV_eoDKXHEH1ChR0Y-lhBq7/exec";
 
 function getScanType() {
   return document.querySelector('input[name="scanType"]:checked').value;
-}
-
-function updateScanLog(data) {
-  const tbody = document.querySelector("#scan-log tbody");
-  // Remove old row for this student
-  const existingRow = Array.from(tbody.rows).find(r => r.cells[0].innerText === data.studentId);
-  if(existingRow) tbody.removeChild(existingRow);
-
-  // Add new row at the top
-  const row = tbody.insertRow(0);
-  row.className = data.status.toLowerCase().replace(/ /g, "-");
-  row.insertCell(0).innerText = data.studentId;
-  row.insertCell(1).innerText = data.studentName;
-  row.insertCell(2).innerText = data.direction.toUpperCase();
-  row.insertCell(3).innerText = data.status;
-  row.insertCell(4).innerText = new Date().toLocaleTimeString();
 }
 
 function sendScanData(studentId, lat="", lng="", manualOverride=false){
@@ -80,7 +64,8 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     scanType: manualOverride ? "manual" : scanType,
     lat: lat,
     lng: lng,
-    manualStatus: manualOverride ? "Manual Override" : ""
+    manualStatus: manualOverride ? "Manual Override" : "",
+    manualOverride: manualOverride
   };
 
   fetch(scriptURL, {
@@ -92,13 +77,22 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     if(data.error){
       document.getElementById("status").innerText = data.error;
     } else {
-      document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()}) - ${data.status}`;
-      updateScanLog(data);
+      document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
+
+      const tbody = document.querySelector("#scan-log tbody");
+      const row = tbody.insertRow(0);
+      row.className = data.direction.toLowerCase();
+      row.insertCell(0).innerText = data.studentId;
+      row.insertCell(1).innerText = data.studentName;
+      row.insertCell(2).innerText = data.direction.toUpperCase();
+      row.insertCell(3).innerText = "Scanned";
+      row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
+    // Restart scanner after short delay
     setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 500);
   })
   .catch(err => {
-    console.log("Fetch error, data may have been sent.", err);
+    console.log("Warning: fetch error, data may have been sent.", err);
     document.getElementById("status").innerText = "⚠️ Data may have sent, restarting scanner...";
     setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 1000);
   });
@@ -137,10 +131,14 @@ function startScanner(){
 
 startScanner();
 
-document.getElementById("manualBtn").addEventListener("click", ()=>{
-  const id = document.getElementById("manualId").value.trim();
+const manualBtn = document.getElementById("manualBtn");
+const manualId = document.getElementById("manualId");
+const manualMode = document.getElementById("manualMode");
+
+manualBtn.addEventListener("click", ()=>{
+  const id = manualId.value.trim();
   if(id){
-    const isManualOverride = document.getElementById("manualMode").checked;
+    const isManualOverride = manualMode.checked;
     if(isManualOverride){
       sendScanData(id,"","",true);
     } else {
@@ -150,11 +148,10 @@ document.getElementById("manualBtn").addEventListener("click", ()=>{
         sendScanData(id,"","",false);
       });
     }
-    document.getElementById("manualId").value="";
+    manualId.value="";
   }
 });
 </script>
 
 </body>
 </html>
-
