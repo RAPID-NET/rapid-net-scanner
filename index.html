@@ -77,19 +77,20 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     if(data.error){
       document.getElementById("status").innerText = data.error;
     } else {
-      document.getElementById("status").innerText = `✅ ${data.studentName} (${data.direction.toUpperCase()})`;
+      // ✅ Show real status (Present / Late / Absent / Going Home)
+      document.getElementById("status").innerText = `✅ ${data.studentName} - ${data.status} (${data.direction.toUpperCase()})`;
 
       const tbody = document.querySelector("#scan-log tbody");
       const row = tbody.insertRow(0);
-      row.className = data.direction.toLowerCase();
+      row.className = data.status.toLowerCase().replace(" ", "-"); // match CSS
       row.insertCell(0).innerText = data.studentId;
       row.insertCell(1).innerText = data.studentName;
       row.insertCell(2).innerText = data.direction.toUpperCase();
-      row.insertCell(3).innerText = "Scanned";
+      row.insertCell(3).innerText = data.status; 
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
     // Restart scanner after short delay
-    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 500);
+    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 800);
   })
   .catch(err => {
     console.log("Warning: fetch error, data may have been sent.", err);
@@ -155,7 +156,3 @@ manualBtn.addEventListener("click", ()=>{
 
 </body>
 </html>
-
-
-
-
