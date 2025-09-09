@@ -37,7 +37,7 @@
   <button id="manualBtn">Submit Manual Override</button>
 </div>
 
-<table id="scan-log">
+<table id="logTable">
   <thead>
     <tr>
       <th>Student ID</th>
@@ -51,7 +51,7 @@
 </table>
 
 <script>
-const scriptURL = "https://script.google.com/macros/s/AKfycbyVNu9DxuO_Cfs5bd7YfdfOxlQyQaoJAmpXVz_fqJONKrtaUSVhOeY_ib43JeBPLiOa/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxTjNC--WixDOLSSzrf23fA0sm3qMqIOdOPP0UVB8_0NdSidJ0kKJk4z--ncpPFjm3q/exec";
 
 function getScanType() {
   return document.querySelector('input[name="scanType"]:checked').value;
@@ -77,25 +77,28 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
     if(data.error){
       document.getElementById("status").innerText = data.error;
     } else {
-      // ✅ Show real status (Present / Late / Absent / Going Home)
+      // ✅ Show real status
       document.getElementById("status").innerText = `✅ ${data.studentName} - ${data.status} (${data.direction.toUpperCase()})`;
 
-      const tbody = document.querySelector("#scan-log tbody");
-      const row = tbody.insertRow(0);
-      row.className = data.status.toLowerCase().replace(" ", "-"); // match CSS
+      // Add row to log
+      const row = document.getElementById("logTable").insertRow(-1);
       row.insertCell(0).innerText = data.studentId;
       row.insertCell(1).innerText = data.studentName;
-      row.insertCell(2).innerText = data.direction.toUpperCase();
-      row.insertCell(3).innerText = data.status; 
+      row.insertCell(2).innerText = data.direction; // IN / OUT
+      row.insertCell(3).innerText = data.status;    // Present / Late / Absent / Going Home
       row.insertCell(4).innerText = new Date().toLocaleTimeString();
     }
+
     // Restart scanner after short delay
-    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 800);
+    setTimeout(() => { 
+      document.getElementById("status").innerText = "Waiting for scan..."; 
+      startScanner(); 
+    }, 1500);
   })
   .catch(err => {
     console.log("Warning: fetch error, data may have been sent.", err);
     document.getElementById("status").innerText = "⚠️ Data may have sent, restarting scanner...";
-    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 1000);
+    setTimeout(() => { document.getElementById("status").innerText = "Waiting for scan..."; startScanner(); }, 2000);
   });
 }
 
