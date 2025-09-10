@@ -61,7 +61,7 @@ function sendScanData(studentId, lat="", lng="", manualOverride=false){
   const scanType = getScanType();
   const payload = {
     studentId: studentId,
-    scanType: manualOverride ? "manual" : scanType,
+    scanType: scanType,  // keep IN or OUT even if manual override
     lat: lat,
     lng: lng,
     manualStatus: manualOverride ? "Manual Override" : "",
@@ -159,4 +159,5 @@ manualBtn.addEventListener("click", ()=>{
 
 </body>
 </html>
+
 
