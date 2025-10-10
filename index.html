@@ -163,24 +163,25 @@
   }
 
   // Manual entry handler
-  document.getElementById("manualBtn").addEventListener("click", () => {
-    const id = document.getElementById("manualId").value.trim();
-    if (id) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        sendScanData(id, pos.coords.latitude, pos.coords.longitude);
-      }, () => {
-        sendScanData(id);
-      });
-      document.getElementById("manualId").value = "";
-      showPopup();
-    }
-  });
+ document.getElementById("manualBtn").addEventListener("click", () => {
+  const id = document.getElementById("manualId").value.trim();
+  if (id) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      sendScanData(id, pos.coords.latitude, pos.coords.longitude, true);
+    }, () => {
+      sendScanData(id, "", "", true);
+    });
+    document.getElementById("manualId").value = "";
+    showPopup();
+  }
+});
 
   startScanner();
 </script>
 
 </body>
 </html>
+
 
 
 
