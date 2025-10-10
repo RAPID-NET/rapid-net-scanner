@@ -109,101 +109,88 @@
     <tbody id="logBody"></tbody>
   </table>
 
-  <script>
-    const webAppUrl = "https://script.google.com/macros/s/AKfycbw2mTc0E0v26t9d1K-yzFdoIT3dLL6EeLpEJCWYSbjVhCBqIOH8NqwBOj_x8RQgSaGi/exec";// ⬅️ replace with your deployed Web App URL
+ <script>
+  const webAppUrl = "https://script.google.com/macros/s/AKfycbw2mTc0E0v26t9d1K-yzFdoIT3dLL6EeLpEJCWYSbjVhCBqIOH8NqwBOj_x8RQgSaGi/exec";
 
-    // === QR Scanner Setup ===
-    const html5QrCode = new Html5Qrcode("reader");
-    const qrConfig = { fps: 10, qrbox: 250 };
+  const html5QrCode = new Html5Qrcode("reader");
+  const qrConfig = { fps: 10, qrbox: 250 };
+  let lastScanTime = 0;
 
-    async function onScanSuccess(decodedText) {
-      const direction = document.querySelector('input[name="direction"]:checked').value;
-      const status = direction === "IN" ? "Present" : "Out";
-      const now = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+  async function sendScan(studentID, direction, status, time) {
+    try {
+      const response = await fetch(webAppUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentID, direction, status, time })
+      });
+      console.log("Server response:", await response.text());
+    } catch (error) {
+      console.error("Error sending scan:", error);
+    }
+  }
 
-      document.getElementById("statusMessage").innerText = `Scanned: ${decodedText}`;
+  async function onScanSuccess(decodedText) {
+    const nowTime = Date.now();
+    if (nowTime - lastScanTime < 3000) return; // ⏳ Ignore if scanned within last 3 seconds
+    lastScanTime = nowTime;
 
-      // Show in table immediately
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${decodedText}</td>
-        <td>Scanned</td>
-        <td>${direction}</td>
-        <td>${status}</td>
-        <td>${now}</td>
-      `;
-      document.getElementById("logBody").prepend(row);
+    const direction = document.querySelector('input[name="direction"]:checked').value;
+    const status = direction === "IN" ? "Present" : "Out";
+    const now = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
 
-      // Send to Google Apps Script
-      try {
-        const response = await fetch(webAppUrl, {
-          method: "POST",
-          body: JSON.stringify({
-            studentID: decodedText,
-            direction: direction,
-            status: status,
-            time: now
-          }),
-          headers: { "Content-Type": "application/json" }
-        });
-        console.log(await response.text());
-      } catch (error) {
-        console.error("Error sending scan:", error);
+    document.getElementById("statusMessage").innerText = `Scanned: ${decodedText}`;
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${decodedText}</td>
+      <td>Scanned</td>
+      <td>${direction}</td>
+      <td>${status}</td>
+      <td>${now}</td>
+    `;
+    document.getElementById("logBody").prepend(row);
+
+    await sendScan(decodedText, direction, status, now);
+  }
+
+  async function startScanner() {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length) {
+        html5QrCode.start({ facingMode: "environment" }, qrConfig, onScanSuccess);
       }
+    } catch (err) {
+      console.error("Error starting scanner:", err);
+    }
+  }
+
+  document.getElementById("manualSubmit").addEventListener("click", async () => {
+    const studentID = document.getElementById("manualID").value.trim();
+    if (!studentID) {
+      alert("Please enter a Student ID.");
+      return;
     }
 
-    async function startScanner() {
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length) {
-          html5QrCode.start(
-            { facingMode: "environment" },
-            qrConfig,
-            onScanSuccess
-          );
-        }
-      } catch (err) {
-        console.error("Error starting scanner:", err);
-      }
-    }
+    const direction = document.querySelector('input[name="direction"]:checked').value;
+    const status = direction === "IN" ? "Present" : "Out";
+    const now = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
 
-    // === Manual Override Submit ===
-    document.getElementById("manualSubmit").addEventListener("click", async () => {
-      const studentID = document.getElementById("manualID").value.trim();
-      if (!studentID) {
-        alert("Please enter a Student ID.");
-        return;
-      }
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${studentID}</td>
+      <td>Manual Entry</td>
+      <td>${direction}</td>
+      <td>${status}</td>
+      <td>${now}</td>
+    `;
+    document.getElementById("logBody").prepend(row);
 
-      const direction = document.querySelector('input[name="direction"]:checked').value;
-      const status = direction === "IN" ? "Present" : "Out";
-      const now = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+    await sendScan(studentID, direction, status, now);
+    document.getElementById("manualID").value = "";
+  });
 
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${studentID}</td>
-        <td>Manual Entry</td>
-        <td>${direction}</td>
-        <td>${status}</td>
-        <td>${now}</td>
-      `;
-      document.getElementById("logBody").prepend(row);
-
-      try {
-        const response = await fetch(webAppUrl, {
-          method: "POST",
-          body: JSON.stringify({ studentID, direction, status, time: now }),
-          headers: { "Content-Type": "application/json" }
-        });
-        console.log(await response.text());
-      } catch (error) {
-        console.error("Error submitting manual entry:", error);
-      }
-
-      document.getElementById("manualID").value = "";
-    });
-
-    startScanner();
-  </script>
+  startScanner();
+</script>
 </body>
 </html>
+
