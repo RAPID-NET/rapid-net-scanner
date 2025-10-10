@@ -73,7 +73,7 @@
   <div id="popup">✅ Scan Recorded Successfully</div>
 
 <script>
-  const scriptURL = "https://script.google.com/macros/s/AKfycbzSPmCi3JVVgADqsZTPfrLn07f6L95LD4U6nNzr8aNn8KWw2b5qrX5Ehm-tgfO_JS_F/exec";
+  const scriptURL = "https://script.google.com/macros/s/AKfycbwUpsmfXeaif3NT4cGUh08VmZfvbuAzfE_7MPH5tvLRUTY9ImX_MXq9lsVBuemwJsX4/exec";
 
   let html5QrCode;
   let scanning = false;
@@ -90,38 +90,39 @@
     setTimeout(() => popup.style.display = "none", 2500);
   }
 
-  function sendScanData(studentId, lat = "", lng = "") {
-    const scanType = getScanType();
-    const payload = {
-      studentId: studentId,
-      scanType: scanType,
-      lat: lat,
-      lng: lng
-    };
+  function sendScanData(studentId, lat = "", lng = "", manualOverride = false) {
+  const scanType = getScanType();
+  const payload = {
+    studentId: studentId,
+    scanType: scanType,
+    lat: lat,
+    lng: lng,
+    manualOverride: manualOverride
+  };
 
-    fetch(scriptURL, {
-      method: 'POST',
-      body: new URLSearchParams(payload)
-    })
-    .then(resp => resp.json())
-    .then(data => {
-      document.getElementById("status").innerText = `✅ ${data.studentName || studentId} - ${data.status} (${data.direction.toUpperCase()})`;
-      addLogRow(studentId, data.direction, data.status);
-      showPopup();
-      setTimeout(() => {
-        document.getElementById("status").innerText = "📷 Waiting for scan...";
-        startScanner();
-      }, 2000);
-    })
-    .catch(err => {
-      console.log("Fetch error:", err);
-      document.getElementById("status").innerText = "⚠️ Error sending data. Restarting...";
-      setTimeout(() => {
-        document.getElementById("status").innerText = "📷 Waiting for scan...";
-        startScanner();
-      }, 3000);
-    });
-  }
+  fetch(scriptURL, {
+    method: 'POST',
+    body: new URLSearchParams(payload)
+  })
+  .then(resp => resp.json())
+  .then(data => {
+    document.getElementById("status").innerText = `✅ ${data.studentName || studentId} - ${data.status} (${data.direction.toUpperCase()})`;
+    addLogRow(studentId, data.direction, data.status);
+    showPopup();
+    setTimeout(() => {
+      document.getElementById("status").innerText = "📷 Waiting for scan...";
+      startScanner();
+    }, 2000);
+  })
+  .catch(err => {
+    console.log("Fetch error:", err);
+    document.getElementById("status").innerText = "⚠️ Error sending data. Restarting...";
+    setTimeout(() => {
+      document.getElementById("status").innerText = "📷 Waiting for scan...";
+      startScanner();
+    }, 3000);
+  });
+}
 
   function addLogRow(id, direction, status) {
     const tbody = document.querySelector("#logTable tbody");
@@ -180,5 +181,6 @@
 
 </body>
 </html>
+
 
 
