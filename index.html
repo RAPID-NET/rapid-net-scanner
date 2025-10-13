@@ -59,21 +59,23 @@
   </div>
 
   <table id="logTable">
-    <thead>
-      <tr>
-        <th>Student ID</th>
-        <th>Direction</th>
-        <th>Status</th>
-        <th>Time</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <thead>
+    <tr>
+      <th>Student Name</th>
+      <th>Grade</th>
+      <th>Section</th>
+      <th>Direction</th>
+      <th>Status</th>
+      <th>Time</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
   <div id="popup">✅ Scan Recorded Successfully</div>
 
 <script>
-  const scriptURL = "https://script.google.com/macros/s/AKfycbwUpsmfXeaif3NT4cGUh08VmZfvbuAzfE_7MPH5tvLRUTY9ImX_MXq9lsVBuemwJsX4/exec";
+  const scriptURL = "https://script.google.com/macros/s/AKfycbxXq13r9Gi0Mt1rhPNWHgvK_zkjWhkxvTcCQFNsp1hX4NbOMueXOMNjJeVcTTS6vDv3/exec";
 
   let html5QrCode;
   let scanning = false;
@@ -101,27 +103,47 @@
   };
 
   fetch(scriptURL, {
-    method: 'POST',
-    body: new URLSearchParams(payload)
-  })
-  .then(resp => resp.json())
-  .then(data => {
-    document.getElementById("status").innerText = `✅ ${data.studentName || studentId} - ${data.status} (${data.direction.toUpperCase()})`;
-    addLogRow(studentId, data.direction, data.status);
+  method: 'POST',
+  body: new URLSearchParams(payload)
+})
+.then(resp => resp.json())
+.then(data => {
+  if (data.success) {
+    // ✅ Update status text on screen
+    document.getElementById("status").innerText = 
+      `✅ ${data.studentName || studentId} - ${data.status} (${data.direction.toUpperCase()})`;
+
+    // ✅ Add a detailed log row (shows name, grade, section, direction, etc.)
+    const logTable = document.getElementById("logTable").querySelector("tbody");
+    const newRow = logTable.insertRow(0);
+
+    newRow.insertCell(0).textContent = data.studentName || "Unknown";
+    newRow.insertCell(1).textContent = data.gradeLevel || "-";
+    newRow.insertCell(2).textContent = data.section || "-";
+    newRow.insertCell(3).textContent = data.direction?.toUpperCase() || "-";
+    newRow.insertCell(4).textContent = data.status || "-";
+    newRow.insertCell(5).textContent = data.loggedAt || "-";
+
+    // ✅ Show confirmation popup
     showPopup();
+
+    // ✅ Reset scanner after 2 seconds
     setTimeout(() => {
       document.getElementById("status").innerText = "📷 Waiting for scan...";
       startScanner();
     }, 2000);
-  })
-  .catch(err => {
-    console.log("Fetch error:", err);
-    document.getElementById("status").innerText = "⚠️ Error sending data. Restarting...";
-    setTimeout(() => {
-      document.getElementById("status").innerText = "📷 Waiting for scan...";
-      startScanner();
-    }, 3000);
-  });
+  } else {
+    document.getElementById("status").innerText = `⚠️ ${data.error || "Scan failed"}`;
+  }
+})
+.catch(err => {
+  console.error("Fetch error:", err);
+  document.getElementById("status").innerText = "⚠️ Error sending data. Restarting...";
+  setTimeout(() => {
+    document.getElementById("status").innerText = "📷 Waiting for scan...";
+    startScanner();
+  }, 3000);
+});
 }
 
   function addLogRow(id, direction, status) {
@@ -181,6 +203,7 @@
 
 </body>
 </html>
+
 
 
 
