@@ -75,7 +75,7 @@
   <div id="popup">✅ Scan Recorded Successfully</div>
 
 <script>
-  const scriptURL = "https://script.google.com/macros/s/AKfycbzjNE3gsorkAlveYuqikgvCP-KGY0yIRsRUcdhIQSICcYXkECwY8SnRQai129Wbbkwe/exec";
+  const scriptURL = "https://script.google.com/macros/s/AKfycbxN47KfpXLdBtFbuPPnzTt3KMk0XMLJgvhkK6xAOCObEPkbtzEmugBaP-PkZvY-YGu2/exec";
 
   let html5QrCode;
   let scanning = false;
@@ -111,8 +111,7 @@
   if (data.success) {
     // ✅ Update status text on screen
     document.getElementById("status").innerText = 
-      `✅ ${data.studentName || studentId} - ${data.status} (${data.direction.toUpperCase()})`;
-
+  `✅ ${studentId} - Scan received. Logging...`;
     // ✅ Add a detailed log row (shows name, grade, section, direction, etc.)
     const logTable = document.getElementById("logTable").querySelector("tbody");
     const newRow = logTable.insertRow(0);
@@ -203,6 +202,7 @@
 
 </body>
 </html>
+
 
 
 
