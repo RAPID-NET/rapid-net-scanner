@@ -46,9 +46,16 @@
   <div id="header">RAPID-NET QR SCANNER</div>
 
   <div id="controls">
+  <div>
     <label><input type="radio" name="scanType" value="in" checked> IN</label>
     <label><input type="radio" name="scanType" value="out"> OUT</label>
   </div>
+
+  <div style="margin-top:8px;">
+    <label><input type="radio" name="session" value="AM" checked> AM Session</label>
+    <label><input type="radio" name="session" value="PM"> PM Session</label>
+  </div>
+</div>
 
   <div id="reader"></div>
   <p id="status">📷 Waiting for scan...</p>
@@ -85,6 +92,10 @@
   function getScanType() {
     return document.querySelector('input[name="scanType"]:checked').value;
   }
+  
+  function getSession() {
+  return document.querySelector('input[name="session"]:checked').value;
+  }
 
   function showPopup() {
     const popup = document.getElementById("popup");
@@ -95,12 +106,13 @@
   function sendScanData(studentId, lat = "", lng = "", manualOverride = false) {
   const scanType = getScanType();
   const payload = {
-    studentId: studentId,
-    scanType: scanType,
-    lat: lat,
-    lng: lng,
-    manualOverride: manualOverride
-  };
+  studentId: studentId,
+  scanType: scanType,
+  session: getSession(),
+  lat: lat,
+  lng: lng,
+  manualOverride: manualOverride
+};
 
   fetch(scriptURL, {
   method: 'POST',
