@@ -49,6 +49,7 @@
   <div>
     <label><input type="radio" name="scanType" value="in" checked> IN</label>
     <label><input type="radio" name="scanType" value="out"> OUT</label>
+    <button id="switchCameraBtn" type="button">Switch Camera</button>
   </div>
 
   <div style="margin-top:8px;">
@@ -82,12 +83,15 @@
   <div id="popup">✅ Scan Recorded Successfully</div>
 
 <script>
-  const scriptURL = "https://script.google.com/macros/s/AKfycbwm0kImY0PqIi0uZE_wUGAI30HN_XB6EvdJmucmCe5rrW6VaQFm-NZTcjzX0VlGwtt8/exec";
+  const scriptURL = "https://script.google.com/macros/s/AKfycbwuicqXJchHKBqLEXW9BR4kaB65NB8R27ZDHL2uJEseZ_BTwZREUeI2jFPoX5-glGRn/exec";
 
   let html5QrCode;
   let scanning = false;
   let lastScanned = "";
   let lastScanTime = 0;
+  
+  let cameras = [];
+  let currentCameraIndex = 0;
 
   function getScanType() {
     return document.querySelector('input[name="scanType"]:checked').value;
@@ -167,34 +171,69 @@
   }
 
   function startScanner() {
-    if (scanning) return;
-    scanning = true;
+  if (scanning) return;
+  scanning = true;
 
+  if (!html5QrCode) {
     html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      qrCodeMessage => {
-        const now = Date.now();
-        if (qrCodeMessage === lastScanned && (now - lastScanTime < 3000)) return; // Prevent double scan
-        lastScanned = qrCodeMessage;
-        lastScanTime = now;
-
-        html5QrCode.stop().then(() => { scanning = false; });
-        navigator.geolocation.getCurrentPosition(pos => {
-          sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude);
-        }, () => {
-          sendScanData(qrCodeMessage);
-        });
-      },
-      errorMessage => { /* ignore continuous errors */ }
-    ).catch(err => {
-      console.log("Scanner start failed:", err);
-      scanning = false;
-      setTimeout(startScanner, 2000);
-    });
   }
 
+  const cameraConfig = cameras.length
+    ? { deviceId: { exact: cameras[currentCameraIndex].id } }
+    : { facingMode: "environment" };
+
+  html5QrCode.start(
+    cameraConfig,
+    { fps: 10, qrbox: 250 },
+    qrCodeMessage => {
+      const now = Date.now();
+
+      if (qrCodeMessage === lastScanned && (now - lastScanTime < 3000)) return;
+
+      lastScanned = qrCodeMessage;
+      lastScanTime = now;
+
+      html5QrCode.stop().then(() => {
+        scanning = false;
+      });
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude);
+      }, () => {
+        sendScanData(qrCodeMessage);
+      });
+    },
+    errorMessage => {
+      // Ignore continuous scan errors
+    }
+  ).catch(err => {
+    console.log("Scanner start failed:", err);
+    scanning = false;
+    setTimeout(startScanner, 2000);
+  });
+}
+function switchCamera() {
+  if (!cameras.length || cameras.length < 2) {
+    document.getElementById("status").innerText = "Only one camera available.";
+    return;
+  }
+
+  currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+
+  document.getElementById("status").innerText = "Switching camera...";
+
+  if (html5QrCode && scanning) {
+    html5QrCode.stop().then(() => {
+      scanning = false;
+      startScanner();
+    }).catch(() => {
+      scanning = false;
+      startScanner();
+    });
+  } else {
+    startScanner();
+  }
+}
   // Manual entry handler
  document.getElementById("manualBtn").addEventListener("click", () => {
   const id = document.getElementById("manualId").value.trim();
@@ -209,7 +248,26 @@
   }
 });
 
+  Html5Qrcode.getCameras().then(devices => {
+  cameras = devices || [];
+
+  if (cameras.length > 0) {
+    const backCameraIndex = cameras.findIndex(camera =>
+      String(camera.label || "").toLowerCase().includes("back") ||
+      String(camera.label || "").toLowerCase().includes("rear") ||
+      String(camera.label || "").toLowerCase().includes("environment")
+    );
+
+    currentCameraIndex = backCameraIndex >= 0 ? backCameraIndex : 0;
+  }
+
   startScanner();
+}).catch(err => {
+  console.log("Camera list failed:", err);
+  startScanner();
+});
+
+document.getElementById("switchCameraBtn").addEventListener("click", switchCamera);
 </script>
 
 </body>
