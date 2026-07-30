@@ -99,187 +99,211 @@
 
   let html5QrCode;
   let scanning = false;
+  let scanBusy = false;
+
   let lastScanned = "";
+  let lastScanKey = "";
   let lastScanTime = 0;
-  
+
   let cameras = [];
   let currentCameraIndex = 0;
+
+  let cachedLat = "";
+  let cachedLng = "";
 
   function getScanType() {
     return document.querySelector('input[name="scanType"]:checked').value;
   }
-  
+
   function getSession() {
-  return document.querySelector('input[name="session"]:checked').value;
+    return document.querySelector('input[name="session"]:checked').value;
   }
 
   function showPopup() {
     const popup = document.getElementById("popup");
     popup.style.display = "block";
-    setTimeout(() => popup.style.display = "none", 2500);
+    setTimeout(() => popup.style.display = "none", 1800);
+  }
+
+  function warmUpLocation() {
+    if (!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        cachedLat = pos.coords.latitude;
+        cachedLng = pos.coords.longitude;
+      },
+      () => {},
+      {
+        enableHighAccuracy: false,
+        maximumAge: 300000,
+        timeout: 1500
+      }
+    );
   }
 
   function sendScanData(studentId, lat = "", lng = "", manualOverride = false) {
-  const scanType = getScanType();
-  const payload = {
-  studentId: studentId,
-  scanType: scanType,
-  session: getSession(),
-  lat: lat,
-  lng: lng,
-  manualOverride: manualOverride
-};
+    const scanType = getScanType();
+    const session = getSession();
 
-  fetch(scriptURL, {
-  method: 'POST',
-  body: new URLSearchParams(payload)
-})
-.then(resp => resp.json())
-.then(data => {
-  if (data.success) {
-    // ✅ Update status text on screen
-    document.getElementById("status").innerText = 
-  `✅ ${studentId} - Scan received. Logging...`;
-    // ✅ Add a detailed log row (shows name, grade, section, direction, etc.)
-    const logTable = document.getElementById("logTable").querySelector("tbody");
-    const newRow = logTable.insertRow(0);
+    const payload = {
+      studentId: studentId,
+      scanType: scanType,
+      session: session,
+      lat: lat,
+      lng: lng,
+      manualOverride: manualOverride
+    };
 
-    newRow.insertCell(0).textContent = data.studentName || "Unknown";
-    newRow.insertCell(1).textContent = data.gradeLevel || "-";
-    newRow.insertCell(2).textContent = data.section || "-";
-    newRow.insertCell(3).textContent = data.direction?.toUpperCase() || "-";
-    newRow.insertCell(4).textContent = data.status || "-";
-    newRow.insertCell(5).textContent = data.loggedAt || "-";
+    document.getElementById("status").innerText =
+      "Sending scan for " + studentId + "...";
 
-    // ✅ Show confirmation popup
-    showPopup();
+    fetch(scriptURL, {
+      method: "POST",
+      body: new URLSearchParams(payload)
+    })
+      .then(resp => resp.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById("status").innerText =
+            studentId + " - Scan recorded.";
 
-    // ✅ Reset scanner after 2 seconds
-    setTimeout(() => {
-      document.getElementById("status").innerText = "📷 Waiting for scan...";
-      startScanner();
-    }, 2000);
-  } else {
-    document.getElementById("status").innerText = `⚠️ ${data.error || "Scan failed"}`;
-  }
-})
-.catch(err => {
-  console.error("Fetch error:", err);
-  document.getElementById("status").innerText = "⚠️ Error sending data. Restarting...";
-  setTimeout(() => {
-    document.getElementById("status").innerText = "📷 Waiting for scan...";
-    startScanner();
-  }, 3000);
-});
-}
+          const logTable = document.getElementById("logTable").querySelector("tbody");
+          const newRow = logTable.insertRow(0);
 
-  function addLogRow(id, direction, status) {
-    const tbody = document.querySelector("#logTable tbody");
-    const row = tbody.insertRow(0);
-    row.insertCell(0).innerText = id;
-    row.insertCell(1).innerText = direction.toUpperCase();
-    row.insertCell(2).innerText = status;
-    row.insertCell(3).innerText = new Date().toLocaleTimeString();
+          newRow.insertCell(0).textContent = data.studentName || "Unknown";
+          newRow.insertCell(1).textContent = data.gradeLevel || "-";
+          newRow.insertCell(2).textContent = data.section || "-";
+          newRow.insertCell(3).textContent = data.direction ? data.direction.toUpperCase() : "-";
+          newRow.insertCell(4).textContent = data.status || "-";
+          newRow.insertCell(5).textContent = data.loggedAt || "-";
+
+          showPopup();
+
+          setTimeout(() => {
+            document.getElementById("status").innerText = "Waiting for scan...";
+            scanBusy = false;
+          }, 1200);
+        } else {
+          document.getElementById("status").innerText =
+            data.error || "Scan failed.";
+
+          setTimeout(() => {
+            document.getElementById("status").innerText = "Waiting for scan...";
+            scanBusy = false;
+          }, 1800);
+        }
+      })
+      .catch(err => {
+        console.error("Fetch error:", err);
+        document.getElementById("status").innerText = "Error sending data.";
+
+        setTimeout(() => {
+          document.getElementById("status").innerText = "Waiting for scan...";
+          scanBusy = false;
+        }, 2000);
+      });
   }
 
   function startScanner() {
-  if (scanning) return;
-  scanning = true;
+    if (scanning) return;
+    scanning = true;
 
-  if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("reader");
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("reader");
+    }
+
+    const cameraConfig = cameras.length
+      ? { deviceId: { exact: cameras[currentCameraIndex].id } }
+      : { facingMode: "environment" };
+
+    html5QrCode.start(
+      cameraConfig,
+      {
+        fps: 15,
+        qrbox: { width: 250, height: 250 }
+      },
+      qrCodeMessage => {
+        const now = Date.now();
+        const scanKey = qrCodeMessage + "|" + getScanType() + "|" + getSession();
+
+        if (scanBusy) return;
+
+        if (scanKey === lastScanKey && now - lastScanTime < 10000) {
+          document.getElementById("status").innerText =
+            "Duplicate scan ignored. Please scan next student.";
+          return;
+        }
+
+        scanBusy = true;
+        lastScanned = qrCodeMessage;
+        lastScanKey = scanKey;
+        lastScanTime = now;
+
+        sendScanData(qrCodeMessage, cachedLat, cachedLng);
+      },
+      () => {}
+    ).catch(err => {
+      console.log("Scanner start failed:", err);
+      scanning = false;
+      setTimeout(startScanner, 2000);
+    });
   }
 
-  const cameraConfig = cameras.length
-    ? { deviceId: { exact: cameras[currentCameraIndex].id } }
-    : { facingMode: "environment" };
+  function switchCamera() {
+    if (!cameras.length || cameras.length < 2) {
+      document.getElementById("status").innerText = "Only one camera available.";
+      return;
+    }
 
-  html5QrCode.start(
-    cameraConfig,
-    { fps: 10, qrbox: 250 },
-    qrCodeMessage => {
-      const now = Date.now();
+    currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+    document.getElementById("status").innerText = "Switching camera...";
 
-      if (qrCodeMessage === lastScanned && (now - lastScanTime < 3000)) return;
-
-      lastScanned = qrCodeMessage;
-      lastScanTime = now;
-
+    if (html5QrCode && scanning) {
       html5QrCode.stop().then(() => {
         scanning = false;
+        scanBusy = false;
+        startScanner();
+      }).catch(() => {
+        scanning = false;
+        scanBusy = false;
+        startScanner();
       });
-
-      navigator.geolocation.getCurrentPosition(pos => {
-        sendScanData(qrCodeMessage, pos.coords.latitude, pos.coords.longitude);
-      }, () => {
-        sendScanData(qrCodeMessage);
-      });
-    },
-    errorMessage => {
-      // Ignore continuous scan errors
     }
-  ).catch(err => {
-    console.log("Scanner start failed:", err);
-    scanning = false;
-    setTimeout(startScanner, 2000);
+  }
+
+  document.getElementById("manualBtn").addEventListener("click", () => {
+    const id = document.getElementById("manualId").value.trim();
+
+    if (id && !scanBusy) {
+      scanBusy = true;
+      sendScanData(id, cachedLat, cachedLng, true);
+      document.getElementById("manualId").value = "";
+    }
   });
-}
-function switchCamera() {
-  if (!cameras.length || cameras.length < 2) {
-    document.getElementById("status").innerText = "Only one camera available.";
-    return;
-  }
 
-  currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+  document.getElementById("switchCameraBtn").addEventListener("click", switchCamera);
 
-  document.getElementById("status").innerText = "Switching camera...";
-
-  if (html5QrCode && scanning) {
-    html5QrCode.stop().then(() => {
-      scanning = false;
-      startScanner();
-    }).catch(() => {
-      scanning = false;
-      startScanner();
-    });
-  } else {
-    startScanner();
-  }
-}
-  // Manual entry handler
- document.getElementById("manualBtn").addEventListener("click", () => {
-  const id = document.getElementById("manualId").value.trim();
-  if (id) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      sendScanData(id, pos.coords.latitude, pos.coords.longitude, true);
-    }, () => {
-      sendScanData(id, "", "", true);
-    });
-    document.getElementById("manualId").value = "";
-    showPopup();
-  }
-});
+  warmUpLocation();
 
   Html5Qrcode.getCameras().then(devices => {
-  cameras = devices || [];
+    cameras = devices || [];
 
-  if (cameras.length > 0) {
-    const backCameraIndex = cameras.findIndex(camera =>
-      String(camera.label || "").toLowerCase().includes("back") ||
-      String(camera.label || "").toLowerCase().includes("rear") ||
-      String(camera.label || "").toLowerCase().includes("environment")
-    );
+    if (cameras.length > 0) {
+      const backCameraIndex = cameras.findIndex(camera =>
+        String(camera.label || "").toLowerCase().includes("back") ||
+        String(camera.label || "").toLowerCase().includes("rear") ||
+        String(camera.label || "").toLowerCase().includes("environment")
+      );
 
-    currentCameraIndex = backCameraIndex >= 0 ? backCameraIndex : 0;
-  }
+      currentCameraIndex = backCameraIndex >= 0 ? backCameraIndex : 0;
+    }
 
-  startScanner();
-}).catch(err => {
-  console.log("Camera list failed:", err);
-  startScanner();
-});
-
-document.getElementById("switchCameraBtn").addEventListener("click", switchCamera);
+    startScanner();
+  }).catch(err => {
+    console.log("Camera list failed:", err);
+    startScanner();
+  });
 </script>
 
 </body>
