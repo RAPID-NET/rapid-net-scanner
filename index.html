@@ -16,6 +16,15 @@
     table { border-collapse: collapse; width: 90%; margin: 15px auto; background: white; }
     th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
     tr:nth-child(even) { background: #f9f9f9; }
+    #switchCameraBtn {
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: bold;
+  border-radius: 6px;
+  background: #166534;
+  color: white;
+  border: none;
+}
 
     /* ✅ Success Popup */
     #popup {
@@ -49,13 +58,16 @@
   <div>
     <label><input type="radio" name="scanType" value="in" checked> IN</label>
     <label><input type="radio" name="scanType" value="out"> OUT</label>
-    <button id="switchCameraBtn" type="button">Switch Camera</button>
   </div>
 
   <div style="margin-top:8px;">
-    <label><input type="radio" name="session" value="AM" checked> AM Session</label>
-    <label><input type="radio" name="session" value="PM"> PM Session</label>
-  </div>
+  <label><input type="radio" name="session" value="AM" checked> AM Session</label>
+  <label><input type="radio" name="session" value="PM"> PM Session</label>
+</div>
+
+<div style="margin-top:10px;">
+  <button id="switchCameraBtn" type="button">Switch Camera</button>
+</div>
 </div>
 
   <div id="reader"></div>
