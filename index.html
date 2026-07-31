@@ -95,7 +95,7 @@
   <div id="popup">✅ Scan Recorded Successfully</div>
 
 <script>
-  const scriptURL = "https://script.google.com/macros/s/AKfycbwuicqXJchHKBqLEXW9BR4kaB65NB8R27ZDHL2uJEseZ_BTwZREUeI2jFPoX5-glGRn/exec";
+  const scriptURL = "https://script.google.com/macros/s/AKfycby2FqR8AiFZj-NKn065GqBLVhV5Ta1h9T4GAcEljgRbafPj9C2NNMkGmei0GCQxlFQN/exec";
 
   let html5QrCode;
   let scanning = false;
@@ -114,11 +114,42 @@
   function getScanType() {
     return document.querySelector('input[name="scanType"]:checked').value;
   }
-
+  
   function getSession() {
     return document.querySelector('input[name="session"]:checked').value;
   }
+    function getEarlyOutReasonIfNeeded() {
+  const scanType = getScanType();
+  if (scanType !== "out") return "";
 
+  const session = getSession();
+  const now = new Date();
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+
+  const amDismissal = 12 * 60 + 10; // 12:10 PM
+  const pmDismissal = 18 * 60 + 40; // 6:40 PM
+
+  const isEarlyOut =
+    (session === "AM" && minutesNow < amDismissal) ||
+    (session === "PM" && minutesNow < pmDismissal);
+
+  if (!isEarlyOut) return "";
+
+  const reason = prompt(
+    "Early OUT detected. Please enter reason:\n\n" +
+    "Clinic / Health concern\n" +
+    "Parent picked up\n" +
+    "Official school activity\n" +
+    "Family emergency\n" +
+    "Guidance / Office concern\n" +
+    "Unauthorized exit\n" +
+    "Others"
+  );
+
+  if (!reason || !reason.trim()) return null;
+
+  return reason.trim();
+}
   function showPopup() {
     const popup = document.getElementById("popup");
     popup.style.display = "block";
@@ -145,11 +176,20 @@
   function sendScanData(studentId, lat = "", lng = "", manualOverride = false) {
     const scanType = getScanType();
     const session = getSession();
+    const earlyOutReason = getEarlyOutReasonIfNeeded();
+
+if (earlyOutReason === null) {
+  document.getElementById("status").innerText = "Early OUT cancelled. Reason is required.";
+  scanBusy = false;
+  setTimeout(startScanner, 1500);
+  return;
+}
 
     const payload = {
       studentId: studentId,
       scanType: scanType,
       session: session,
+      earlyOutReason: earlyOutReason,
       lat: lat,
       lng: lng,
       manualOverride: manualOverride
