@@ -135,20 +135,45 @@
 
   if (!isEarlyOut) return "";
 
-  const reason = prompt(
-    "Early OUT detected. Please enter reason:\n\n" +
-    "Clinic / Health concern\n" +
-    "Parent picked up\n" +
-    "Official school activity\n" +
-    "Family emergency\n" +
-    "Guidance / Office concern\n" +
-    "Unauthorized exit\n" +
-    "Others"
+  const choice = prompt(
+    "Select Early OUT reason:\n\n" +
+    "1 - Clinic / Health concern\n" +
+    "2 - Parent picked up\n" +
+    "3 - Official school activity\n" +
+    "4 - Family emergency\n" +
+    "5 - Guidance / Office concern\n" +
+    "6 - Unauthorized exit\n" +
+    "7 - Others\n\n" +
+    "Type number only:"
   );
 
-  if (!reason || !reason.trim()) return null;
+  if (!choice || !choice.trim()) return null;
 
-  return reason.trim();
+  const reasons = {
+    "1": "Clinic / Health concern",
+    "2": "Parent picked up",
+    "3": "Official school activity",
+    "4": "Family emergency",
+    "5": "Guidance / Office concern",
+    "6": "Unauthorized exit"
+  };
+
+  const selected = choice.trim();
+
+  if (selected === "7") {
+    const otherReason = prompt("Please type specific reason:");
+
+    if (!otherReason || !otherReason.trim()) return null;
+
+    return "Others - " + otherReason.trim();
+  }
+
+  if (!reasons[selected]) {
+    alert("Invalid choice. Early OUT scan cancelled.");
+    return null;
+  }
+
+  return reasons[selected];
 }
   function showPopup() {
     const popup = document.getElementById("popup");
@@ -179,9 +204,15 @@
     const earlyOutReason = getEarlyOutReasonIfNeeded();
 
 if (earlyOutReason === null) {
-  document.getElementById("status").innerText = "Early OUT cancelled. Reason is required.";
+  document.getElementById("status").innerText =
+    "Early OUT cancelled. Select IN for arrival scan, or enter reason for Early OUT.";
+
   scanBusy = false;
-  setTimeout(startScanner, 1500);
+
+  setTimeout(() => {
+    document.getElementById("status").innerText = "Ready for next student...";
+  }, 1200);
+
   return;
 }
 
@@ -221,9 +252,9 @@ if (earlyOutReason === null) {
           showPopup();
 
           setTimeout(() => {
-            document.getElementById("status").innerText = "Waiting for scan...";
+            document.getElementById("status").innerText = "Ready for next student...";
             scanBusy = false;
-          }, 1200);
+          }, 800);
         } else {
           document.getElementById("status").innerText =
             data.error || "Scan failed.";
@@ -269,9 +300,14 @@ if (earlyOutReason === null) {
 
         if (scanBusy) return;
 
-        if (scanKey === lastScanKey && now - lastScanTime < 10000) {
+        if (scanKey === lastScanKey && now - lastScanTime < 3000) {
           document.getElementById("status").innerText =
-            "Duplicate scan ignored. Please scan next student.";
+            "Duplicate ignored. Move ID away, then scan next student.";
+        
+          setTimeout(() => {
+            document.getElementById("status").innerText = "Ready for next student...";
+          }, 1000);
+        
           return;
         }
 
