@@ -6,7 +6,44 @@
   <script src="libs/html5-qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
-    #header { background-color: #4CAF50; color: white; padding: 15px; text-align: center; font-size: 26px; font-weight: bold; }
+    #header {
+      background-color: #166534;
+      color: white;
+      padding: 14px 16px;
+    }
+    
+    .scanner-school-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      text-align: left;
+    }
+    
+    .scanner-logo {
+      width: 58px;
+      height: 58px;
+      object-fit: contain;
+      background: white;
+      border-radius: 50%;
+      padding: 4px;
+    }
+    
+    .scanner-school-name {
+      font-weight: bold;
+      font-size: 18px;
+    }
+    
+    .scanner-school-address {
+      font-size: 13px;
+      opacity: 0.95;
+    }
+    
+    .scanner-title {
+      margin-top: 4px;
+      font-size: 26px;
+      font-weight: bold;
+    }
     #controls { padding: 10px; text-align: center; }
     #reader { width: 300px; margin: 15px auto; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
     #status { text-align: center; font-weight: bold; margin-top: 10px; }
@@ -51,7 +88,21 @@
 </head>
 <body>
 
-  <div id="header">RAPID-NET QR SCANNER</div>
+  <div id="header">
+  <div class="scanner-school-header">
+    <img
+      src="https://drive.google.com/thumbnail?id=1nK6f-i5iFasipRW4EkSGGjU-Wb80LwAH&sz=w200"
+      alt="School Logo"
+      class="scanner-logo"
+    >
+
+    <div>
+      <div class="scanner-school-name">TINAJEROS NATIONAL HIGH SCHOOL</div>
+      <div class="scanner-school-address">B. Rivera St. Tinajeros, Malabon City</div>
+      <div class="scanner-title">RAPID-NET QR SCANNER</div>
+    </div>
+  </div>
+</div>
 
   <div id="controls">
   <div>
