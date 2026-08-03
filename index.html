@@ -64,7 +64,12 @@
   <label><input type="radio" name="session" value="AM" checked> AM Session</label>
   <label><input type="radio" name="session" value="PM"> PM Session</label>
 </div>
-
+  <div style="margin-top:8px;">
+  <label>
+    <input type="checkbox" id="schoolWideEarlyDismissal">
+    School-wide Early Dismissal
+  </label>
+</div>
 <div style="margin-top:10px;">
   <button id="switchCameraBtn" type="button">Switch Camera</button>
 </div>
@@ -118,6 +123,11 @@
   function getSession() {
     return document.querySelector('input[name="session"]:checked').value;
   }
+
+  function isSchoolWideEarlyDismissal() {
+  const checkbox = document.getElementById("schoolWideEarlyDismissal");
+  return checkbox && checkbox.checked;
+}
     function getEarlyOutReasonIfNeeded() {
   const scanType = getScanType();
   if (scanType !== "out") return "";
@@ -134,6 +144,10 @@
     (session === "PM" && minutesNow < pmDismissal);
 
   if (!isEarlyOut) return "";
+      
+  if (isSchoolWideEarlyDismissal()) {
+  return "School-wide early dismissal";
+}
 
   const choice = prompt(
     "Select Early OUT reason:\n\n" +
