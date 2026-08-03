@@ -188,6 +188,38 @@
 
   return reasons[selected];
 }
+  function playBeep(type) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (type === "success") {
+      oscillator.frequency.value = 880;
+      gainNode.gain.value = 0.08;
+    } else if (type === "duplicate") {
+      oscillator.frequency.value = 440;
+      gainNode.gain.value = 0.06;
+    } else {
+      oscillator.frequency.value = 220;
+      gainNode.gain.value = 0.08;
+    }
+
+    oscillator.start();
+
+    setTimeout(() => {
+      oscillator.stop();
+      audioCtx.close();
+    }, 120);
+  } catch (err) {
+    console.log("Sound not available:", err);
+  }
+}
   function showPopup() {
     const popup = document.getElementById("popup");
     popup.style.display = "block";
@@ -249,8 +281,10 @@ if (earlyOutReason === null) {
       .then(resp => resp.json())
       .then(data => {
         if (data.success) {
-          document.getElementById("status").innerText =
-            studentId + " - Scan recorded.";
+        playBeep("success");
+      
+        document.getElementById("status").innerText =
+          studentId + " - Scan recorded.";
 
           const logTable = document.getElementById("logTable").querySelector("tbody");
           const newRow = logTable.insertRow(0);
@@ -269,6 +303,8 @@ if (earlyOutReason === null) {
             scanBusy = false;
           }, 800);
         } else {
+          playBeep("error");
+        
           document.getElementById("status").innerText =
             data.error || "Scan failed.";
 
@@ -279,9 +315,11 @@ if (earlyOutReason === null) {
         }
       })
       .catch(err => {
+        playBeep("error");
+      
         console.error("Fetch error:", err);
         document.getElementById("status").innerText = "Error sending data.";
-
+      
         setTimeout(() => {
           document.getElementById("status").innerText = "Waiting for scan...";
           scanBusy = false;
@@ -314,8 +352,10 @@ if (earlyOutReason === null) {
         if (scanBusy) return;
 
         if (scanKey === lastScanKey && now - lastScanTime < 3000) {
-          document.getElementById("status").innerText =
-            "Duplicate ignored. Move ID away, then scan next student.";
+        playBeep("duplicate");
+      
+        document.getElementById("status").innerText =
+          "Duplicate ignored. Move ID away, then scan next student.";
         
           setTimeout(() => {
             document.getElementById("status").innerText = "Ready for next student...";
