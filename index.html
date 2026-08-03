@@ -71,6 +71,8 @@
 </div>
 <div style="margin-top:10px;">
   <button id="switchCameraBtn" type="button">Switch Camera</button>
+  <br><br>
+  <button id="enableSoundBtn" type="button">Enable Sound</button>
 </div>
 </div>
 
@@ -188,10 +190,32 @@
 
   return reasons[selected];
 }
-  function playBeep(type) {
+  let soundEnabled = false;
+let sharedAudioCtx = null;
+
+function enableSound() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
+    sharedAudioCtx = sharedAudioCtx || new AudioContext();
+
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume();
+    }
+
+    soundEnabled = true;
+    playBeep("success");
+    document.getElementById("status").innerText = "Sound enabled. Ready for scan.";
+  } catch (err) {
+    alert("Sound cannot be enabled on this browser.");
+  }
+}
+  function playBeep(type) {
+  try {
+    if (!soundEnabled) return;
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = sharedAudioCtx || new AudioContext();
+    sharedAudioCtx = audioCtx;
 
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
@@ -213,9 +237,8 @@
     oscillator.start();
 
     setTimeout(() => {
-      oscillator.stop();
-      audioCtx.close();
-    }, 120);
+  oscillator.stop();
+}, 120);
   } catch (err) {
     console.log("Sound not available:", err);
   }
@@ -412,6 +435,7 @@ if (earlyOutReason === null) {
   });
 
   document.getElementById("switchCameraBtn").addEventListener("click", switchCamera);
+  document.getElementById("enableSoundBtn").addEventListener("click", enableSound);
 
   warmUpLocation();
 
