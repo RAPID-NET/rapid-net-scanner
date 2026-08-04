@@ -143,6 +143,7 @@
       <th>Section</th>
       <th>Direction</th>
       <th>Status</th>
+      <th>Reason</th>
       <th>Time</th>
     </tr>
   </thead>
@@ -362,13 +363,23 @@ if (earlyOutReason === null) {
 
           const logTable = document.getElementById("logTable").querySelector("tbody");
           const newRow = logTable.insertRow(0);
-
+          
+          const directionText = data.direction || data.scanType || scanType || "-";
+          const statusText = data.status || "-";
+          const reasonText = data.reason || data.earlyOutReason || earlyOutReason || "";
+          const timeText = data.loggedAt || data.time || new Date().toLocaleTimeString();
+          
           newRow.insertCell(0).textContent = data.studentName || "Unknown";
           newRow.insertCell(1).textContent = data.gradeLevel || "-";
           newRow.insertCell(2).textContent = data.section || "-";
-          newRow.insertCell(3).textContent = data.direction ? data.direction.toUpperCase() : "-";
-          newRow.insertCell(4).textContent = data.status || "-";
-          newRow.insertCell(5).textContent = data.loggedAt || "-";
+          newRow.insertCell(3).textContent = String(directionText).toUpperCase();
+          newRow.insertCell(4).textContent = statusText;
+          newRow.insertCell(5).textContent = reasonText;
+          newRow.insertCell(6).textContent = timeText;
+          
+          if (statusText === "Early Out") {
+            newRow.style.backgroundColor = "#ede9fe";
+          }
 
           showPopup();
 
