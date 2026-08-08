@@ -355,50 +355,116 @@ if (earlyOutReason === null) {
     })
       .then(resp => resp.json())
       .then(data => {
-        if (data.success) {
-        playBeep("success");
-      
-        document.getElementById("status").innerText =
-          studentId + " - Scan recorded.";
 
-          const logTable = document.getElementById("logTable").querySelector("tbody");
-          const newRow = logTable.insertRow(0);
-          
-          const directionText = data.direction || data.scanType || scanType || "-";
-          const statusText = data.status || "-";
-          const reasonText = data.reason || data.earlyOutReason || earlyOutReason || "";
-          const timeText = data.loggedAt || data.time || new Date().toLocaleTimeString();
-          
-          newRow.insertCell(0).textContent = data.studentName || "Unknown";
-          newRow.insertCell(1).textContent = data.gradeLevel || "-";
-          newRow.insertCell(2).textContent = data.section || "-";
-          newRow.insertCell(3).textContent = String(directionText).toUpperCase();
-          newRow.insertCell(4).textContent = statusText;
-          newRow.insertCell(5).textContent = reasonText;
-          newRow.insertCell(6).textContent = timeText;
-          
-          if (statusText === "Early Out") {
-            newRow.style.backgroundColor = "#ede9fe";
-          }
+  // ===== DUPLICATE SCAN =====
+  // Apps Script returns success:true but duplicate:true
+  // because the request was processed successfully,
+  // but no new attendance record was created.
+  if (data.success && data.duplicate) {
 
-          showPopup();
+    playBeep("duplicate");
 
-          setTimeout(() => {
-            document.getElementById("status").innerText = "Ready for next student...";
-            scanBusy = false;
-          }, 800);
-        } else {
-          playBeep("error");
-        
-          document.getElementById("status").innerText =
-            data.error || "Scan failed.";
+    document.getElementById("status").innerText =
+      data.message ||
+      "Duplicate scan ignored. No new attendance record was created.";
 
-          setTimeout(() => {
-            document.getElementById("status").innerText = "Waiting for scan...";
-            scanBusy = false;
-          }, 1800);
-        }
-      })
+    // IMPORTANT:
+    // Do NOT insert a new row in the scanner table.
+    // Do NOT show the green success popup.
+
+    setTimeout(() => {
+      document.getElementById("status").innerText =
+        "Ready for next student...";
+      scanBusy = false;
+    }, 1200);
+
+    return;
+  }
+
+  // ===== SUCCESSFUL NEW SCAN =====
+  if (data.success) {
+
+    playBeep("success");
+
+    document.getElementById("status").innerText =
+      studentId + " - Scan recorded.";
+
+    const logTable =
+      document
+        .getElementById("logTable")
+        .querySelector("tbody");
+
+    const newRow = logTable.insertRow(0);
+
+    const directionText =
+      data.direction ||
+      data.scanType ||
+      scanType ||
+      "-";
+
+    const statusText =
+      data.status || "-";
+
+    const reasonText =
+      data.reason ||
+      data.earlyOutReason ||
+      earlyOutReason ||
+      "";
+
+    const timeText =
+      data.loggedAt ||
+      data.time ||
+      new Date().toLocaleTimeString();
+
+    newRow.insertCell(0).textContent =
+      data.studentName || "Unknown";
+
+    newRow.insertCell(1).textContent =
+      data.gradeLevel || "-";
+
+    newRow.insertCell(2).textContent =
+      data.section || "-";
+
+    newRow.insertCell(3).textContent =
+      String(directionText).toUpperCase();
+
+    newRow.insertCell(4).textContent =
+      statusText;
+
+    newRow.insertCell(5).textContent =
+      reasonText;
+
+    newRow.insertCell(6).textContent =
+      timeText;
+
+    if (statusText === "Early Out") {
+      newRow.style.backgroundColor = "#ede9fe";
+    }
+
+    showPopup();
+
+    setTimeout(() => {
+      document.getElementById("status").innerText =
+        "Ready for next student...";
+      scanBusy = false;
+    }, 800);
+
+  } else {
+
+    // ===== ERROR FROM APPS SCRIPT =====
+
+    playBeep("error");
+
+    document.getElementById("status").innerText =
+      data.error || "Scan failed.";
+
+    setTimeout(() => {
+      document.getElementById("status").innerText =
+        "Waiting for scan...";
+      scanBusy = false;
+    }, 1800);
+  }
+})
       .catch(err => {
         playBeep("error");
       
