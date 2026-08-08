@@ -323,452 +323,469 @@ function enableSound() {
       }
     );
   }
+function sendScanData(
+  studentId,
+  lat = "",
+  lng = "",
+  manualOverride = false
+) {
 
-  function sendScanData(studentId, lat = "", lng = "", manualOverride = false) {
-    const scanType = getScanType();
-    const session = getSession();
-    const earlyOutReason = getEarlyOutReasonIfNeeded();
+  const scanType = getScanType();
+  const session = getSession();
+  const earlyOutReason = getEarlyOutReasonIfNeeded();
 
-if (earlyOutReason === null) {
-  document.getElementById("status").innerText =
-    "Early OUT cancelled. Select IN for arrival scan, or enter reason for Early OUT.";
 
-  scanBusy = false;
+  // =====================================================
+  // EARLY OUT CANCELLED
+  // =====================================================
 
-  setTimeout(() => {
-    document.getElementById("status").innerText = "Ready for next student...";
-  }, 1200);
-
-  return;
-}
-
-    const payload = {
-      studentId: studentId,
-      scanType: scanType,
-      session: session,
-      earlyOutReason: earlyOutReason,
-      lat: lat,
-      lng: lng,
-      manualOverride: manualOverride
-    };
+  if (earlyOutReason === null) {
 
     document.getElementById("status").innerText =
-      "Sending scan for " + studentId + "...";
+      "Early OUT cancelled. Select IN for arrival scan, or enter reason for Early OUT.";
 
-    fetch(scriptURL, {
-      method: "POST",
-      body: new URLSearchParams(payload)
-    })
-      .then(resp => resp.json())
-      .then(data => {
+    scanBusy = false;
 
-  const statusElement =
-    document.getElementById("status");
-
-
-  // =====================================================
-  // SERVER BUSY / CONCURRENCY LOCK
-  // =====================================================
-  //
-  // This may happen when two tablets submit a scan
-  // almost at exactly the same time.
-  // Nothing was recorded. User may scan again.
-  // =====================================================
-
-  if (data.busy) {
-
-  playBeep("error");
-
-  // The server did NOT record this scan.
-  // Clear the local duplicate memory so the same
-  // student can immediately scan again.
-  lastScanned = "";
-  lastScanKey = "";
-  lastScanTime = 0;
-
-  statusElement.innerText =
-    data.error ||
-    "Scanner is processing another attendance scan. Please scan again.";
-
-  releaseScanner(
-    1200,
-    "Ready. Please scan the student again."
-  );
-
-  return;
-}
-
-
-  // =====================================================
-  // WRONG AM / PM SESSION
-  // =====================================================
-
-  if (data.sessionMismatch) {
-
-    playBeep("error");
-
-    statusElement.innerText =
-      data.error ||
-      "Wrong session selected. Please check AM or PM Session.";
-
-    releaseScanner(
-      2200,
-      "Check the AM/PM Session, then scan again."
-    );
+    setTimeout(() => {
+      document.getElementById("status").innerText =
+        "Ready for next student...";
+    }, 1200);
 
     return;
   }
 
 
   // =====================================================
-  // ATTENDANCE NOT REQUIRED
-  // =====================================================
-  //
-  // Examples:
-  // - Normal weekend
-  // - Holiday
-  // - Dayout
-  // - Suspension
-  // - Learner not covered by Special School Day
+  // PREPARE PAYLOAD
   // =====================================================
 
-  if (data.attendanceNotRequired) {
+  const payload = {
+    studentId: studentId,
+    scanType: scanType,
+    session: session,
+    earlyOutReason: earlyOutReason,
+    lat: lat,
+    lng: lng,
+    manualOverride: manualOverride
+  };
 
-    playBeep("error");
-
-    const reason =
-      data.skipReason ||
-      "Attendance is not required today";
-
-    statusElement.innerText =
-      (data.studentName
-        ? data.studentName + " - "
-        : "") +
-      reason +
-      ". Scan not recorded.";
-
-    releaseScanner(
-      2500,
-      "Ready for next student..."
-    );
-
-    return;
-  }
-
-
-  // =====================================================
-  // DUPLICATE MOVEMENT
-  // =====================================================
-  //
-  // IN after IN
-  // OUT after OUT
-  //
-  // Backend returns success:true because the request was
-  // processed, but duplicate:true means no new row was
-  // created.
-  // =====================================================
-
-  if (
-    data.success &&
-    data.duplicate
-  ) {
-
-    playBeep("duplicate");
-
-    statusElement.innerText =
-      data.message ||
-      "Duplicate scan ignored. No new attendance record was created.";
-
-    // Do NOT insert scanner-table row.
-    // Do NOT show green success popup.
-
-    releaseScanner(
-      1400,
-      "Ready for next student..."
-    );
-
-    return;
-  }
-
-
-  // =====================================================
-  // OTHER BACKEND ERROR
-  // =====================================================
-
-  if (!data.success) {
-
-    playBeep("error");
-
-    statusElement.innerText =
-      data.error ||
-      "Scan failed. Please try again.";
-
-    releaseScanner(
-      2000,
-      "Waiting for scan..."
-    );
-
-    return;
-  }
-
-
-  // =====================================================
-  // SUCCESSFUL NEW ATTENDANCE RECORD
-  // =====================================================
-
-  playBeep("success");
-
-
-  const logTable =
-    document
-      .getElementById("logTable")
-      .querySelector("tbody");
-
-
-  const directionText =
-    data.direction ||
-    data.scanType ||
-    scanType ||
-    "-";
-
-
-  const statusText =
-    data.status ||
-    "-";
-
-
-  const reasonText =
-    data.reason ||
-    data.earlyOutReason ||
-    earlyOutReason ||
-    "";
-
-
-  const timeText =
-    data.loggedAt ||
-    data.time ||
-    new Date().toLocaleTimeString();
-
-
-  const studentName =
-    data.studentName ||
-    studentId;
-
-
-  const normalizedDirection =
-    String(directionText)
-      .trim()
-      .toLowerCase();
-
-
-  const normalizedStatus =
-    String(statusText)
-      .trim()
-      .toLowerCase();
-
-
-  // =====================================================
-  // FRIENDLY SCANNER MESSAGE
-  // =====================================================
-
-  let successMessage =
-    studentName +
-    " - Scan recorded.";
-
-
-  // PRESENT
-  if (normalizedStatus === "present") {
-
-    successMessage =
-      studentName +
-      " - PRESENT. Arrival recorded.";
-
-  }
-
-
-  // NORMAL LATE ARRIVAL
-  else if (
-    normalizedStatus === "late" &&
-    normalizedDirection !== "late arrival"
-  ) {
-
-    successMessage =
-      studentName +
-      " - LATE. Arrival recorded.";
-
-  }
-
-
-  // LATE ARRIVAL AFTER AUTOMATIC ABSENCE
-  else if (
-    normalizedDirection === "late arrival"
-  ) {
-
-    successMessage =
-      studentName +
-      " - LATE ARRIVAL recorded. Earlier absence corrected.";
-
-  }
-
-
-  // RE-ENTRY
-  else if (
-    normalizedDirection === "re-entry" ||
-    normalizedStatus === "re-entry"
-  ) {
-
-    successMessage =
-      studentName +
-      " - RE-ENTRY recorded.";
-
-  }
-
-
-  // EARLY OUT
-  else if (
-    normalizedStatus === "early out"
-  ) {
-
-    successMessage =
-      studentName +
-      " - EARLY OUT recorded" +
-      (
-        reasonText
-          ? ": " + reasonText
-          : ""
-      ) +
-      ".";
-
-  }
-
-
-  // NORMAL GOING HOME
-  else if (
-    normalizedStatus === "going home"
-  ) {
-
-    successMessage =
-      studentName +
-      " - GOING HOME recorded.";
-
-  }
-
-
-  // Inform user if server used a corrected session.
-  if (
-    data.sessionAdjusted &&
-    data.session
-  ) {
-
-    successMessage +=
-      " Session: " +
-      data.session +
-      ".";
-
-  }
-
-
-  statusElement.innerText =
-    successMessage;
-
-
-  // =====================================================
-  // ADD SUCCESSFUL SCAN TO LOCAL TABLE
-  // =====================================================
-
-  const newRow =
-    logTable.insertRow(0);
-
-
-  newRow
-    .insertCell(0)
-    .textContent =
-      data.studentName ||
-      "Unknown";
-
-
-  newRow
-    .insertCell(1)
-    .textContent =
-      data.gradeLevel ||
-      "-";
-
-
-  newRow
-    .insertCell(2)
-    .textContent =
-      data.section ||
-      "-";
-
-
-  newRow
-    .insertCell(3)
-    .textContent =
-      String(directionText)
-        .toUpperCase();
-
-
-  newRow
-    .insertCell(4)
-    .textContent =
-      statusText;
-
-
-  newRow
-    .insertCell(5)
-    .textContent =
-      reasonText;
-
-
-  newRow
-    .insertCell(6)
-    .textContent =
-      timeText;
-
-
-  // Highlight Early Out locally.
-  if (
-    normalizedStatus === "early out"
-  ) {
-
-    newRow.style.backgroundColor =
-      "#ede9fe";
-
-  }
-
-
-  showPopup();
-
-
-  releaseScanner(
-    1000,
-    "Ready for next student..."
-  );
-
-})
-      .catch(err => {
-
-  playBeep("error");
-
-  console.error("Fetch error:", err);
-
-  // Network/server error means we cannot confirm
-  // that the scan was successfully processed.
-  // Allow the same ID to be scanned again.
-  lastScanned = "";
-  lastScanKey = "";
-  lastScanTime = 0;
 
   document.getElementById("status").innerText =
-    "Connection error. Scan was not confirmed.";
+    "Sending scan for " + studentId + "...";
 
-  releaseScanner(
-    2000,
-    "Ready. Please scan the student again."
-  );
 
-});
+  // =====================================================
+  // SEND TO APPS SCRIPT
+  // =====================================================
 
+  fetch(scriptURL, {
+    method: "POST",
+    body: new URLSearchParams(payload)
+  })
+
+    .then(resp => resp.json())
+
+    .then(data => {
+
+      const statusElement =
+        document.getElementById("status");
+
+
+      // ===================================================
+      // SERVER BUSY
+      // ===================================================
+
+      if (data.busy) {
+
+        playBeep("error");
+
+        // No confirmed record was created.
+        // Allow the same ID to be scanned again.
+        lastScanned = "";
+        lastScanKey = "";
+        lastScanTime = 0;
+
+        statusElement.innerText =
+          data.error ||
+          "Scanner is processing another attendance scan. Please scan again.";
+
+        releaseScanner(
+          1200,
+          "Ready. Please scan the student again."
+        );
+
+        return;
+      }
+
+
+      // ===================================================
+      // WRONG AM / PM SESSION
+      // ===================================================
+
+      if (data.sessionMismatch) {
+
+        playBeep("error");
+
+        statusElement.innerText =
+          data.error ||
+          "Wrong session selected. Please check AM or PM Session.";
+
+        releaseScanner(
+          2200,
+          "Check the AM/PM Session, then scan again."
+        );
+
+        return;
+      }
+
+
+      // ===================================================
+      // ATTENDANCE NOT REQUIRED
+      // ===================================================
+
+      if (data.attendanceNotRequired) {
+
+        playBeep("error");
+
+        const reason =
+          data.skipReason ||
+          "Attendance is not required today";
+
+        statusElement.innerText =
+          (data.studentName
+            ? data.studentName + " - "
+            : "") +
+          reason +
+          ". Scan not recorded.";
+
+        releaseScanner(
+          2500,
+          "Ready for next student..."
+        );
+
+        return;
+      }
+
+
+      // ===================================================
+      // DUPLICATE MOVEMENT
+      // ===================================================
+
+      if (
+        data.success &&
+        data.duplicate
+      ) {
+
+        playBeep("duplicate");
+
+        statusElement.innerText =
+          data.message ||
+          "Duplicate scan ignored. No new attendance record was created.";
+
+        releaseScanner(
+          1400,
+          "Ready for next student..."
+        );
+
+        return;
+      }
+
+
+      // ===================================================
+      // OTHER BACKEND ERROR
+      // ===================================================
+
+      if (!data.success) {
+
+        playBeep("error");
+
+        statusElement.innerText =
+          data.error ||
+          "Scan failed. Please try again.";
+
+        releaseScanner(
+          2000,
+          "Waiting for scan..."
+        );
+
+        return;
+      }
+
+
+      // ===================================================
+      // SUCCESSFUL NEW ATTENDANCE RECORD
+      // ===================================================
+
+      playBeep("success");
+
+
+      const logTable =
+        document
+          .getElementById("logTable")
+          .querySelector("tbody");
+
+
+      const directionText =
+        data.direction ||
+        data.scanType ||
+        scanType ||
+        "-";
+
+
+      const statusText =
+        data.status ||
+        "-";
+
+
+      const reasonText =
+        data.reason ||
+        data.earlyOutReason ||
+        earlyOutReason ||
+        "";
+
+
+      const timeText =
+        data.loggedAt ||
+        data.time ||
+        new Date().toLocaleTimeString();
+
+
+      const studentName =
+        data.studentName ||
+        studentId;
+
+
+      const normalizedDirection =
+        String(directionText)
+          .trim()
+          .toLowerCase();
+
+
+      const normalizedStatus =
+        String(statusText)
+          .trim()
+          .toLowerCase();
+
+
+      // ===================================================
+      // FRIENDLY SUCCESS MESSAGE
+      // ===================================================
+
+      let successMessage =
+        studentName +
+        " - Scan recorded.";
+
+
+      // PRESENT
+      if (normalizedStatus === "present") {
+
+        successMessage =
+          studentName +
+          " - PRESENT. Arrival recorded.";
+
+      }
+
+
+      // LATE ARRIVAL AFTER AUTOMATIC ABSENCE
+      else if (
+        normalizedDirection === "late arrival"
+      ) {
+
+        successMessage =
+          studentName +
+          " - LATE ARRIVAL recorded. Earlier absence corrected.";
+
+      }
+
+
+      // NORMAL LATE
+      else if (
+        normalizedStatus === "late"
+      ) {
+
+        successMessage =
+          studentName +
+          " - LATE. Arrival recorded.";
+
+      }
+
+
+      // RE-ENTRY
+      else if (
+        normalizedDirection === "re-entry" ||
+        normalizedStatus === "re-entry"
+      ) {
+
+        successMessage =
+          studentName +
+          " - RE-ENTRY recorded.";
+
+      }
+
+
+      // EARLY OUT
+      else if (
+        normalizedStatus === "early out"
+      ) {
+
+        successMessage =
+          studentName +
+          " - EARLY OUT recorded" +
+          (
+            reasonText
+              ? ": " + reasonText
+              : ""
+          ) +
+          ".";
+
+      }
+
+
+      // GOING HOME
+      else if (
+        normalizedStatus === "going home"
+      ) {
+
+        successMessage =
+          studentName +
+          " - GOING HOME recorded.";
+
+      }
+
+
+      // ===================================================
+      // SESSION INFORMATION
+      // ===================================================
+
+      if (
+        data.sessionAdjusted &&
+        data.session
+      ) {
+
+        successMessage +=
+          " Session: " +
+          data.session +
+          ".";
+
+      }
+
+
+      statusElement.innerText =
+        successMessage;
+
+
+      // ===================================================
+      // ADD TO LOCAL SCANNER TABLE
+      // ===================================================
+
+      const newRow =
+        logTable.insertRow(0);
+
+
+      newRow
+        .insertCell(0)
+        .textContent =
+          data.studentName ||
+          "Unknown";
+
+
+      newRow
+        .insertCell(1)
+        .textContent =
+          data.gradeLevel ||
+          "-";
+
+
+      newRow
+        .insertCell(2)
+        .textContent =
+          data.section ||
+          "-";
+
+
+      newRow
+        .insertCell(3)
+        .textContent =
+          String(directionText)
+            .toUpperCase();
+
+
+      newRow
+        .insertCell(4)
+        .textContent =
+          statusText;
+
+
+      newRow
+        .insertCell(5)
+        .textContent =
+          reasonText;
+
+
+      newRow
+        .insertCell(6)
+        .textContent =
+          timeText;
+
+
+      // Highlight Early Out.
+      if (
+        normalizedStatus === "early out"
+      ) {
+
+        newRow.style.backgroundColor =
+          "#ede9fe";
+
+      }
+
+
+      showPopup();
+
+
+      releaseScanner(
+        1000,
+        "Ready for next student..."
+      );
+
+    })
+
+
+    // =====================================================
+    // CONNECTION / FETCH ERROR
+    // =====================================================
+
+    .catch(err => {
+
+      playBeep("error");
+
+      console.error(
+        "Fetch error:",
+        err
+      );
+
+
+      // We cannot confirm that the scan completed.
+      // Allow the same learner to scan again.
+      lastScanned = "";
+      lastScanKey = "";
+      lastScanTime = 0;
+
+
+      document
+        .getElementById("status")
+        .innerText =
+          "Connection error. Scan was not confirmed.";
+
+
+      releaseScanner(
+        2000,
+        "Ready. Please scan the student again."
+      );
+
+    });
+
+}
+  
   function startScanner() {
     if (scanning) return;
     scanning = true;
