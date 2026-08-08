@@ -839,27 +839,225 @@ function sendScanData(
   }
 
   function switchCamera() {
-    if (!cameras.length || cameras.length < 2) {
-      document.getElementById("status").innerText = "Only one camera available.";
-      return;
-    }
 
-    currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
-    document.getElementById("status").innerText = "Switching camera...";
+  const statusElement =
+    document.getElementById("status");
 
-    if (html5QrCode && scanning) {
-      html5QrCode.stop().then(() => {
-        scanning = false;
-        scanBusy = false;
-        startScanner();
-      }).catch(() => {
-        scanning = false;
-        scanBusy = false;
-        startScanner();
-      });
-    }
+  if (!cameras || cameras.length < 2) {
+
+    statusElement.innerText =
+      "Only one usable camera is available.";
+
+    return;
   }
 
+
+  if (scanBusy) {
+
+    statusElement.innerText =
+      "Please wait for the current scan to finish.";
+
+    return;
+  }
+
+
+  const oldCameraIndex =
+    currentCameraIndex;
+
+  const nextCameraIndex =
+    (currentCameraIndex + 1) %
+    cameras.length;
+
+
+  statusElement.innerText =
+    "Switching camera...";
+
+
+  const startSelectedCamera =
+    cameraIndex => {
+
+      currentCameraIndex =
+        cameraIndex;
+
+      scanning = false;
+
+
+      return html5QrCode
+        .start(
+          {
+            deviceId: {
+              exact:
+                cameras[currentCameraIndex].id
+            }
+          },
+          {
+            fps: 15,
+            qrbox: {
+              width: 250,
+              height: 250
+            }
+          },
+          qrCodeMessage => {
+
+            const now =
+              Date.now();
+
+            const scanKey =
+              qrCodeMessage +
+              "|" +
+              getScanType() +
+              "|" +
+              getSession();
+
+
+            if (scanBusy) {
+              return;
+            }
+
+
+            if (
+              scanKey === lastScanKey &&
+              now - lastScanTime < 3000
+            ) {
+
+              playBeep("duplicate");
+
+              statusElement.innerText =
+                "Duplicate ignored. Move ID away, then scan next student.";
+
+              setTimeout(() => {
+
+                statusElement.innerText =
+                  "Ready for next student...";
+
+              }, 1000);
+
+              return;
+            }
+
+
+            scanBusy = true;
+
+            lastScanned =
+              qrCodeMessage;
+
+            lastScanKey =
+              scanKey;
+
+            lastScanTime =
+              now;
+
+
+            sendScanData(
+              qrCodeMessage,
+              cachedLat,
+              cachedLng
+            );
+
+          },
+          () => {}
+        )
+        .then(() => {
+
+          scanning = true;
+          scanBusy = false;
+
+          statusElement.innerText =
+            "Camera switched. Ready for scan.";
+
+        });
+    };
+
+
+  // Stop current camera first.
+  if (
+    html5QrCode &&
+    scanning
+  ) {
+
+    html5QrCode
+      .stop()
+
+      .then(() => {
+
+        scanning = false;
+
+        // Small delay gives Chrome time to release
+        // the previous camera device.
+        return new Promise(resolve =>
+          setTimeout(resolve, 400)
+        );
+
+      })
+
+      .then(() =>
+        startSelectedCamera(
+          nextCameraIndex
+        )
+      )
+
+      .catch(error => {
+
+        console.log(
+          "Camera switch failed:",
+          error
+        );
+
+
+        statusElement.innerText =
+          "Selected camera is unavailable. Returning to previous camera...";
+
+
+        // Try restoring the camera that worked.
+        setTimeout(() => {
+
+          startSelectedCamera(
+            oldCameraIndex
+          )
+            .catch(restoreError => {
+
+              console.log(
+                "Camera restore failed:",
+                restoreError
+              );
+
+              scanning = false;
+              scanBusy = false;
+
+              statusElement.innerText =
+                "Camera unavailable. Close other camera apps or tabs, then refresh this page.";
+
+            });
+
+        }, 500);
+
+      });
+
+  } else {
+
+    startSelectedCamera(
+      nextCameraIndex
+    )
+      .catch(error => {
+
+        console.log(
+          "Camera start failed:",
+          error
+        );
+
+        currentCameraIndex =
+          oldCameraIndex;
+
+        scanning = false;
+        scanBusy = false;
+
+        statusElement.innerText =
+          "Unable to switch camera.";
+
+      });
+
+  }
+}
   document.getElementById("manualBtn").addEventListener("click", () => {
     const id = document.getElementById("manualId").value.trim();
 
