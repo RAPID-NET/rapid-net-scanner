@@ -165,6 +165,9 @@
 
   let cameras = [];
   let currentCameraIndex = 0;
+  
+  // Remember cameras that failed to open
+  const unavailableCameraIds = new Set();
 
   let cachedLat = "";
   let cachedLng = "";
@@ -864,14 +867,56 @@ function sendScanData(
   const oldCameraIndex =
     currentCameraIndex;
 
-  const nextCameraIndex =
-    (currentCameraIndex + 1) %
-    cameras.length;
+
+  // =====================================================
+  // FIND NEXT CAMERA THAT HAS NOT PREVIOUSLY FAILED
+  // =====================================================
+
+  let nextCameraIndex = -1;
+
+  for (
+    let offset = 1;
+    offset < cameras.length;
+    offset++
+  ) {
+
+    const candidateIndex =
+      (currentCameraIndex + offset) %
+      cameras.length;
+
+    const candidate =
+      cameras[candidateIndex];
+
+    if (
+      candidate &&
+      !unavailableCameraIds.has(candidate.id)
+    ) {
+
+      nextCameraIndex =
+        candidateIndex;
+
+      break;
+    }
+  }
+
+
+  // No other usable candidate remains.
+  if (nextCameraIndex === -1) {
+
+    statusElement.innerText =
+      "Only one usable camera is available.";
+
+    return;
+  }
 
 
   statusElement.innerText =
     "Switching camera...";
 
+
+  // =====================================================
+  // START SELECTED CAMERA
+  // =====================================================
 
   const startSelectedCamera =
     cameraIndex => {
@@ -887,7 +932,7 @@ function sendScanData(
           {
             deviceId: {
               exact:
-                cameras[currentCameraIndex].id
+                cameras[cameraIndex].id
             }
           },
           {
@@ -957,6 +1002,7 @@ function sendScanData(
           },
           () => {}
         )
+
         .then(() => {
 
           scanning = true;
@@ -969,7 +1015,10 @@ function sendScanData(
     };
 
 
-  // Stop current camera first.
+  // =====================================================
+  // STOP CURRENT CAMERA
+  // =====================================================
+
   if (
     html5QrCode &&
     scanning
@@ -982,19 +1031,28 @@ function sendScanData(
 
         scanning = false;
 
-        // Small delay gives Chrome time to release
-        // the previous camera device.
+        // Give Chrome time to release current camera.
         return new Promise(resolve =>
-          setTimeout(resolve, 400)
+          setTimeout(resolve, 500)
         );
 
       })
+
+
+      // ===================================================
+      // TRY NEXT CAMERA
+      // ===================================================
 
       .then(() =>
         startSelectedCamera(
           nextCameraIndex
         )
       )
+
+
+      // ===================================================
+      // NEXT CAMERA FAILED
+      // ===================================================
 
       .catch(error => {
 
@@ -1004,16 +1062,44 @@ function sendScanData(
         );
 
 
+        // Remember this camera so RAPID-NET will
+        // not try it again during this session.
+        const failedCamera =
+          cameras[nextCameraIndex];
+
+        if (
+          failedCamera &&
+          failedCamera.id
+        ) {
+
+          unavailableCameraIds.add(
+            failedCamera.id
+          );
+
+        }
+
+
         statusElement.innerText =
-          "Selected camera is unavailable. Returning to previous camera...";
+          "Camera unavailable. Returning to previous camera...";
 
 
-        // Try restoring the camera that worked.
+        // =================================================
+        // RESTORE PREVIOUS WORKING CAMERA
+        // =================================================
+
         setTimeout(() => {
 
           startSelectedCamera(
             oldCameraIndex
           )
+
+            .then(() => {
+
+              statusElement.innerText =
+                "Only one usable camera is available. Ready for scan.";
+
+            })
+
             .catch(restoreError => {
 
               console.log(
@@ -1025,25 +1111,43 @@ function sendScanData(
               scanBusy = false;
 
               statusElement.innerText =
-                "Camera unavailable. Close other camera apps or tabs, then refresh this page.";
+                "Camera unavailable. Refresh the scanner page.";
 
             });
 
-        }, 500);
+        }, 600);
 
       });
+
 
   } else {
 
     startSelectedCamera(
       nextCameraIndex
     )
+
       .catch(error => {
 
         console.log(
           "Camera start failed:",
           error
         );
+
+
+        const failedCamera =
+          cameras[nextCameraIndex];
+
+        if (
+          failedCamera &&
+          failedCamera.id
+        ) {
+
+          unavailableCameraIds.add(
+            failedCamera.id
+          );
+
+        }
+
 
         currentCameraIndex =
           oldCameraIndex;
